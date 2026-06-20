@@ -166,7 +166,7 @@ function tick(): void {
   const wheel = input.consumeWheel();
 
   player.update(dt, input, mouse.x);
-  cameraRig.update(dt, mouse.y, wheel, input.isLocked);
+  cameraRig.update(dt, mouse.y, wheel, input.lookActive);
 
   updateToonLighting({
     lightDir: sunDir,

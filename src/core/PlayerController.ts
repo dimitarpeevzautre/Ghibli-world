@@ -105,8 +105,8 @@ export class PlayerController {
     // 1. local up
     this.planet.localUp(this.position, this.up);
 
-    // 2. mouse-look turns heading around the local up axis.
-    if (input.isLocked && mouseDX !== 0) {
+    // 2. mouse-look / touch-drag turns heading around the local up axis.
+    if (input.lookActive && mouseDX !== 0) {
       this.forward.applyAxisAngle(this.up, -mouseDX * this.turnSpeed);
     }
 

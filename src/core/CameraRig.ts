@@ -34,9 +34,9 @@ export class CameraRig {
     private readonly player: PlayerController,
   ) {}
 
-  update(dt: number, mouseDY: number, wheel: number, locked: boolean): void {
+  update(dt: number, mouseDY: number, wheel: number, lookActive: boolean): void {
     // Pitch + zoom from input.
-    if (locked && mouseDY !== 0) {
+    if (lookActive && mouseDY !== 0) {
       this.pitch = THREE.MathUtils.clamp(
         this.pitch - mouseDY * this.pitchSpeed,
         this.minPitch,
