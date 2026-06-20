@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Planet } from './Planet';
 import { Input } from './Input';
+import type { Obstacle } from '../world/VillageLayout';
 import { createToonMaterial } from '../render/ToonMaterial';
 import { outlineHierarchy } from '../render/OutlinePass';
 
@@ -26,6 +27,9 @@ export class PlayerController {
   footHeight: number;
   walkSpeed = 8.0; // world units / sec
   runMultiplier = 1.9;
+  /** Building footprints to be pushed out of (set from VillageLayout). */
+  obstacles: Obstacle[] = [];
+  collisionRadius = 0.6;
   turnSpeed = 0.0022; // radians per pixel of mouse-x
   private currentSpeed = 0;
 
@@ -41,6 +45,7 @@ export class PlayerController {
   private _newPos = new THREE.Vector3();
   private _zAxis = new THREE.Vector3();
   private _xAxis = new THREE.Vector3();
+  private _o = new THREE.Vector3();
 
   constructor(
     private readonly planet: Planet,
@@ -143,6 +148,12 @@ export class PlayerController {
       this.orthonormalizeForward();
     }
 
+    // 5. push out of building footprints, then re-derive the frame.
+    if (this.resolveObstacles()) {
+      this.planet.localUp(this.position, this.up);
+      this.orthonormalizeForward();
+    }
+
     // walking bob, or a gentle idle breathing when stood still
     const moving = this.currentSpeed > 0.5;
     if (moving) {
@@ -167,6 +178,30 @@ export class PlayerController {
     } else {
       this.forward.normalize();
     }
+  }
+
+  /** Push the player out of any building footprints it has entered. Returns true if moved. */
+  private resolveObstacles(): boolean {
+    if (this.obstacles.length === 0) return false;
+    let moved = false;
+    for (let iter = 0; iter < 2; iter++) {
+      let any = false;
+      for (const o of this.obstacles) {
+        const min = o.radius + this.collisionRadius;
+        this._o.copy(this.position).sub(o.center);
+        const dist = this._o.length();
+        if (dist > 1e-4 && dist < min) {
+          this._o.divideScalar(dist);
+          this.position.copy(o.center).addScaledVector(this._o, min);
+          // snap back onto the sphere surface
+          this.planet.surfacePoint(this.position, this.footHeight, this.position);
+          any = true;
+          moved = true;
+        }
+      }
+      if (!any) break;
+    }
+    return moved;
   }
 
   /** Position the root on the surface and slerp its orientation toward the target frame. */

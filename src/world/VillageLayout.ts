@@ -33,6 +33,12 @@ export interface ChimneyEmitter {
   up: THREE.Vector3;
 }
 
+/** A circular building footprint the player is pushed out of (world centre on the surface). */
+export interface Obstacle {
+  center: THREE.Vector3;
+  radius: number;
+}
+
 const UP = new THREE.Vector3(0, 1, 0);
 
 /** An InstancedMesh paired with a matching inverted-hull outline InstancedMesh. */
@@ -81,6 +87,10 @@ export class VillageLayout {
   readonly group = new THREE.Group();
   /** Chimney smoke emitters, gathered as houses are placed. */
   readonly chimneys: ChimneyEmitter[] = [];
+  /** Solid building meshes the camera rig raycasts against to avoid clipping through walls. */
+  readonly colliders: THREE.Mesh[] = [];
+  /** Circular footprints the player controller is pushed out of (houses, chapel, чешма). */
+  readonly obstacles: Obstacle[] = [];
 
   // scratch
   private _q = new THREE.Quaternion();
@@ -152,10 +162,14 @@ export class VillageLayout {
     // --- Landmarks at the square ---
     const cheshma = createCheshma();
     this.place(cheshma, this.center, this.yawFacingCenter(this.center), 1);
+    this.addColliders(cheshma);
+    this.addObstacle(cheshma);
 
     const chapelDir = this.dirAround(0.16, 0.6);
     const chapel = createChapel();
     this.place(chapel, chapelDir, this.yawFacingCenter(chapelDir), 1);
+    this.addColliders(chapel);
+    this.addObstacle(chapel);
 
     // --- Ring of houses around the square ---
     const houseCount = 9;
@@ -167,6 +181,8 @@ export class VillageLayout {
       // Face the square, with a little jitter.
       this.place(house, dir, this.yawFacingCenter(dir) + randRange(-0.2, 0.2), 1);
       this.collectChimney(house);
+      this.addColliders(house);
+      this.addObstacle(house);
 
       // Dress each house: a pot, sometimes a woodpile / haystack nearby.
       const sideAz = azimuth + randRange(-0.05, 0.05);
@@ -192,6 +208,20 @@ export class VillageLayout {
     void R;
   }
 
+  /** Register a placed building's solid (non-outline) meshes as camera colliders. */
+  private addColliders(building: THREE.Object3D): void {
+    building.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh && !m.name.endsWith('__outline')) this.colliders.push(m);
+    });
+  }
+
+  /** Register a building's circular footprint so the player can't walk through it. */
+  private addObstacle(building: THREE.Object3D): void {
+    const radius = building.userData.footprint as number | undefined;
+    if (radius) this.obstacles.push({ center: building.position.clone(), radius });
+  }
+
   /** Transform a placed house's local chimney point into a world-space smoke emitter. */
   private collectChimney(house: THREE.Object3D): void {
     const local = house.userData.chimneyLocal as THREE.Vector3 | undefined;
@@ -206,7 +236,9 @@ export class VillageLayout {
     for (let i = 0; i < n; i++) {
       const az = (i / n) * Math.PI * 2 + 0.4;
       const dir = this.dirAround(0.205, az);
-      this.place(createGate(), dir, this.yawFacingCenter(dir), 1);
+      const gate = createGate();
+      this.place(gate, dir, this.yawFacingCenter(dir), 1);
+      this.addColliders(gate);
     }
   }
 

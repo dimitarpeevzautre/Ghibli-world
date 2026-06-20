@@ -198,6 +198,7 @@ export function createHouse(): THREE.Group {
   addWindow(g, uw * 0.3, baseTop + upperH * 0.55, ud / 2 + 0.02);
   addWindow(g, w * 0.3, 0.2 + groundH * 0.55, d / 2 + 0.02);
 
+  g.userData.footprint = Math.hypot(w, d) / 2 + 0.2;
   outlineHierarchy(g, { thickness: 0.045, color: palette.ink });
   return g;
 }
@@ -266,6 +267,7 @@ export function createChapel(): THREE.Group {
   g.add(towerRoof);
   addCross(g, 0, towerH + 2.0, d / 2 - 0.85);
 
+  g.userData.footprint = Math.hypot(w, d) / 2 + 0.2;
   outlineHierarchy(g, { thickness: 0.05, color: palette.ink });
   return g;
 }
@@ -313,6 +315,7 @@ export function createCheshma(): THREE.Group {
     g.add(spout);
   }
 
+  g.userData.footprint = 1.7;
   outlineHierarchy(g, { thickness: 0.04, color: palette.ink });
   return g;
 }

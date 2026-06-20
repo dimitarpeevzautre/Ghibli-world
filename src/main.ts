@@ -51,10 +51,14 @@ scene.add(village.group);
 const player = new PlayerController(planet, new THREE.Vector3(0.0, 1.0, 0.06).normalize());
 // Face the village square at spawn so the opening shot looks inward toward the чешма.
 planet.tangentToward(player.up, new THREE.Vector3(0, 1, 0), player.forward);
+// Keep the player from walking through buildings.
+player.obstacles = village.obstacles;
 scene.add(player.root);
 
 const input = new Input(renderer.domElement);
 const cameraRig = new CameraRig(camera, player);
+// Let the camera avoid clipping through the village buildings.
+cameraRig.colliders = village.colliders;
 
 const sky = new SkyDome(PLANET_RADIUS * 9);
 scene.add(sky.mesh);
@@ -204,6 +208,9 @@ function tick(): void {
 
   requestAnimationFrame(tick);
 }
+
+// Make sure static building world-matrices exist before the camera raycasts against them.
+scene.updateMatrixWorld(true);
 
 // Hide the loader once the first frame is ready.
 requestAnimationFrame(() => {
