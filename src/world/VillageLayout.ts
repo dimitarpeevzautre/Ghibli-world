@@ -5,7 +5,7 @@ import {
   createHouse,
   createChapel,
   createCheshma,
-  createTree,
+  createGate,
   createPot,
   createHaystack,
   createWoodpile,
@@ -15,10 +15,23 @@ import {
   fenceMaterial,
   bushGeometry,
   bushMaterial,
+  leafyTrunkGeometry,
+  leafyFoliageGeometry,
+  cypressTrunkGeometry,
+  cypressFoliageGeometry,
+  trunkMaterial,
+  foliageMaterial,
+  palette,
   setSeed,
   rand,
   randRange,
 } from './props';
+
+/** A chimney emitter: world position of the chimney top + the local surface up there. */
+export interface ChimneyEmitter {
+  position: THREE.Vector3;
+  up: THREE.Vector3;
+}
 
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -66,6 +79,8 @@ class InstancedField {
 
 export class VillageLayout {
   readonly group = new THREE.Group();
+  /** Chimney smoke emitters, gathered as houses are placed. */
+  readonly chimneys: ChimneyEmitter[] = [];
 
   // scratch
   private _q = new THREE.Quaternion();
@@ -151,6 +166,7 @@ export class VillageLayout {
       const house = createHouse();
       // Face the square, with a little jitter.
       this.place(house, dir, this.yawFacingCenter(dir) + randRange(-0.2, 0.2), 1);
+      this.collectChimney(house);
 
       // Dress each house: a pot, sometimes a woodpile / haystack nearby.
       const sideAz = azimuth + randRange(-0.05, 0.05);
@@ -166,13 +182,32 @@ export class VillageLayout {
     // --- Cobblestone square + radiating streets (instanced калдъръм) ---
     this.buildCobblestones();
 
-    // --- Garden fences around the square ---
+    // --- Garden fences + gates around the square ---
     this.buildFences();
+    this.buildGates();
 
     // --- Countryside: trees + bushes wrapping the whole globe ---
     this.buildScatter();
 
     void R;
+  }
+
+  /** Transform a placed house's local chimney point into a world-space smoke emitter. */
+  private collectChimney(house: THREE.Object3D): void {
+    const local = house.userData.chimneyLocal as THREE.Vector3 | undefined;
+    if (!local) return;
+    house.updateWorldMatrix(true, false);
+    const world = house.localToWorld(local.clone());
+    this.chimneys.push({ position: world, up: world.clone().normalize() });
+  }
+
+  private buildGates(): void {
+    const n = 4;
+    for (let i = 0; i < n; i++) {
+      const az = (i / n) * Math.PI * 2 + 0.4;
+      const dir = this.dirAround(0.205, az);
+      this.place(createGate(), dir, this.yawFacingCenter(dir), 1);
+    }
   }
 
   private buildCobblestones(): void {
@@ -264,29 +299,37 @@ export class VillageLayout {
       bushes.push({ dir, yaw: rand() * Math.PI * 2, scale: randRange(0.6, 1.4) });
     }
 
-    // Trees are non-trivial groups, so we *clone* a few master trees and place copies.
-    // (Instancing whole hierarchies is overkill for this density; cloning keeps it simple.)
-    this.placeTreeClones(leafy, 'leafy');
-    this.placeTreeClones(cypress, 'cypress');
+    // Trees: trunk + foliage instanced separately but sharing per-tree matrices. This keeps
+    // a few hundred trees down to ~8 draw calls total (incl. outlines) instead of thousands.
+    this.buildTreeField(leafy, leafyTrunkGeometry(), leafyFoliageGeometry(), palette.leafA, '#23301c');
+    this.buildTreeField(cypress, cypressTrunkGeometry(), cypressFoliageGeometry(), palette.leafCypress, '#1f2c1c');
 
-    // Bushes are cheap + uniform -> instanced.
+    // Bushes are cheap + uniform -> instanced (geometry base sits at y = 0).
     const field = new InstancedField(bushGeometry(), bushMaterial(), bushes.length, 0.025, '#2c3a22');
-    bushes.forEach((b, i) => field.set(i, this.surfaceMatrix(b.dir, 0.3 * b.scale, b.yaw, b.scale)));
+    bushes.forEach((b, i) => field.set(i, this.surfaceMatrix(b.dir, 0, b.yaw, b.scale)));
     field.finalize(bushes.length);
     field.addTo(this.group);
   }
 
-  private placeTreeClones(
+  private buildTreeField(
     list: { dir: THREE.Vector3; yaw: number; scale: number }[],
-    kind: 'leafy' | 'cypress',
+    trunkGeo: THREE.BufferGeometry,
+    foliageGeo: THREE.BufferGeometry,
+    foliageColor: string,
+    foliageOutline: string,
   ): void {
-    // Build a small set of master trees, then clone (sharing geometry/material) for variety.
-    const masters = Array.from({ length: 6 }, () => createTree(kind));
-    for (const entry of list) {
-      const master = masters[Math.floor(rand() * masters.length)];
-      const clone = master.clone();
-      this.place(clone, entry.dir, entry.yaw, entry.scale);
-    }
+    if (list.length === 0) return;
+    const trunk = new InstancedField(trunkGeo, trunkMaterial(), list.length, 0.03, '#241a12');
+    const foliage = new InstancedField(foliageGeo, foliageMaterial(foliageColor), list.length, 0.045, foliageOutline);
+    list.forEach((t, i) => {
+      const m = this.surfaceMatrix(t.dir, 0, t.yaw, t.scale);
+      trunk.set(i, m);
+      foliage.set(i, m);
+    });
+    trunk.finalize(list.length);
+    foliage.finalize(list.length);
+    trunk.addTo(this.group);
+    foliage.addTo(this.group);
   }
 
   private randomDirection(target = new THREE.Vector3()): THREE.Vector3 {

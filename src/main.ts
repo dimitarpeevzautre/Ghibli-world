@@ -8,6 +8,8 @@ import { CameraRig } from './core/CameraRig';
 import { SkyDome } from './render/SkyDome';
 import { PostFX } from './render/PostFX';
 import { VillageLayout } from './world/VillageLayout';
+import { Effects } from './world/Effects';
+import { Ambient } from './render/Ambient';
 import {
   updateToonLighting,
   toonGlobals,
@@ -56,6 +58,17 @@ const cameraRig = new CameraRig(camera, player);
 
 const sky = new SkyDome(PLANET_RADIUS * 9);
 scene.add(sky.mesh);
+
+// Life: chimney smoke + drifting leaves, and a procedural wind ambience.
+const effects = new Effects(village.chimneys, new THREE.Vector3(0, 1, 0).normalize(), PLANET_RADIUS);
+scene.add(effects.group);
+
+const ambient = new Ambient();
+// Start audio on the first user gesture (autoplay policy).
+const startAudio = () => ambient.start();
+window.addEventListener('pointerdown', startAudio, { once: true });
+window.addEventListener('keydown', startAudio, { once: true });
+window.addEventListener('touchstart', startAudio, { once: true });
 
 const postFX = new PostFX(renderer, scene, camera);
 
@@ -130,6 +143,12 @@ fPost.add(postFX.grainPass.uniforms.uVignette, 'value', 0, 1, 0.01).name('vignet
 fPost.add(postFX.grainPass.uniforms.uSaturation, 'value', 0.5, 1.2, 0.01).name('saturation');
 fPost.add(postFX.grainPass.uniforms.uWarmth, 'value', -0.1, 0.2, 0.005).name('warmth');
 
+const fLife = gui.addFolder('Life & sound');
+fLife.add(effects, 'smokeEnabled').name('chimney smoke');
+fLife.add(effects, 'leavesEnabled').name('falling leaves');
+fLife.add(ambient, 'enabled').name('ambient wind').onChange((v: boolean) => ambient.setEnabled(v));
+fLife.add(ambient, 'volume', 0, 1, 0.01).name('wind volume');
+
 const fPlayer = gui.addFolder('Player & camera');
 fPlayer.add(player, 'walkSpeed', 2, 20, 0.5);
 fPlayer.add(player, 'runMultiplier', 1, 3, 0.1);
@@ -175,8 +194,10 @@ function tick(): void {
     fogColor: atmosphere.fogColor,
     fogNear: atmosphere.fogNear,
     fogFar: atmosphere.fogFar,
+    time: elapsed,
   });
 
+  effects.update(dt, elapsed);
   sky.update(elapsed, camera.position, sunDir);
 
   postFX.render(dt, elapsed);

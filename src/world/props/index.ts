@@ -58,172 +58,260 @@ export function randRange(a: number, b: number): number {
   return a + (b - a) * rand();
 }
 
+/** A framed window: dark glass, a light frame and a cross muntin, with optional shutters. */
+function addWindow(parent: THREE.Group, x: number, y: number, z: number, shutters = true): void {
+  const w = 0.7;
+  const h = 0.95;
+  const frame = box(w + 0.14, h + 0.14, 0.08, palette.plaster);
+  frame.position.set(x, y, z);
+  parent.add(frame);
+  const glass = box(w, h, 0.06, palette.window, { shadowStrength: 0.8, rimStrength: 0.5 });
+  glass.position.set(x, y, z + 0.03);
+  parent.add(glass);
+  const mh = box(w, 0.06, 0.07, palette.plaster);
+  mh.position.set(x, y, z + 0.04);
+  parent.add(mh);
+  const mv = box(0.06, h, 0.07, palette.plaster);
+  mv.position.set(x, y, z + 0.04);
+  parent.add(mv);
+  if (shutters) {
+    for (const sx of [-1, 1]) {
+      const shutter = box(0.24, h + 0.05, 0.06, palette.timber);
+      shutter.position.set(x + sx * (w / 2 + 0.18), y, z + 0.02);
+      parent.add(shutter);
+    }
+  }
+}
+
 /**
- * A Revival house: stone/plaster ground floor, an overhanging timber upper storey (чардак),
- * a deep terracotta hip roof, shutters, a door and a chimney.
+ * A Revival house: stone ground floor, an overhanging timber upper storey (чардак) with corner
+ * posts + diagonal braces, a projecting bay window ( еркер), a deep terracotta hip roof with
+ * dark eaves, framed windows with shutters, a door and a chimney (whose top is recorded in
+ * `userData.chimneyLocal` so smoke can be emitted from it).
  */
 export function createHouse(): THREE.Group {
   const g = new THREE.Group();
   g.name = 'House';
 
-  const w = randRange(3.4, 4.6);
-  const d = randRange(3.0, 4.0);
-  const groundH = randRange(2.0, 2.6);
-  const upperH = randRange(1.8, 2.3);
-  const overhang = 0.45;
+  const w = randRange(3.6, 4.8);
+  const d = randRange(3.2, 4.2);
+  const groundH = randRange(1.9, 2.4);
+  const upperH = randRange(1.9, 2.3);
+  const overhang = 0.5;
 
   const plasterColor = rand() > 0.5 ? palette.plaster : palette.plasterWarm;
   const roofColor = rand() > 0.5 ? palette.roof : palette.roofAlt;
 
-  // Ground floor (stone or whitewashed plaster).
-  const ground = box(w, groundH, d, rand() > 0.6 ? palette.stone : plasterColor);
-  ground.position.y = groundH / 2;
+  // Stone plinth + ground floor.
+  const plinth = box(w + 0.2, 0.35, d + 0.2, palette.stoneDark);
+  plinth.position.y = 0.175;
+  g.add(plinth);
+  const ground = box(w, groundH, d, palette.stone);
+  ground.position.y = groundH / 2 + 0.2;
   g.add(ground);
 
-  // Overhanging timber upper storey.
-  const upper = box(w + overhang * 2, upperH, d + overhang * 2, palette.plaster);
-  upper.position.y = groundH + upperH / 2;
-  g.add(upper);
-
-  // Timber framing hints on the upper storey (corner posts).
-  const postT = 0.18;
+  const baseTop = groundH + 0.2;
   const uw = w + overhang * 2;
   const ud = d + overhang * 2;
+
+  // Overhanging plastered upper storey.
+  const upper = box(uw, upperH, ud, plasterColor);
+  upper.position.y = baseTop + upperH / 2;
+  g.add(upper);
+
+  // Timber framing: corner posts, top/bottom beams, diagonal braces on the side walls.
+  const postT = 0.17;
   for (const sx of [-1, 1]) {
     for (const sz of [-1, 1]) {
       const post = box(postT, upperH, postT, palette.timber);
-      post.position.set((sx * uw) / 2, groundH + upperH / 2, (sz * ud) / 2);
+      post.position.set((sx * uw) / 2, baseTop + upperH / 2, (sz * ud) / 2);
       g.add(post);
     }
   }
-  // a mid timber band
-  const band = box(uw, 0.16, ud, palette.timberDark);
-  band.position.y = groundH + upperH * 0.55;
-  g.add(band);
-
-  // Deep terracotta hip roof (4-sided pyramid, oversized for deep eaves).
-  const roofH = randRange(1.4, 1.9);
-  const roofRadius = Math.hypot(uw, ud) / 2 + 0.5;
-  const roof = new THREE.Mesh(
-    new THREE.ConeGeometry(roofRadius, roofH, 4),
-    mat(roofColor, { shadowStrength: 0.5 }),
-  );
-  roof.rotation.y = Math.PI / 4; // align flat faces to walls
-  roof.position.y = groundH + upperH + roofH / 2;
-  g.add(roof);
-
-  // Chimney.
-  const chimney = box(0.5, 1.0, 0.5, palette.stoneDark);
-  chimney.position.set(uw * 0.2, groundH + upperH + roofH * 0.6, ud * 0.1);
-  g.add(chimney);
-
-  // Door.
-  const door = box(0.9, 1.6, 0.12, palette.timberDark);
-  door.position.set(0, 0.8, d / 2 + 0.02);
-  g.add(door);
-
-  // Windows + shutters on the upper storey, front face.
-  for (const sx of [-1, 1]) {
-    const win = box(0.7, 0.9, 0.1, palette.window);
-    win.position.set(sx * uw * 0.25, groundH + upperH * 0.55, ud / 2 + 0.02);
-    g.add(win);
-    for (const shx of [-1, 1]) {
-      const shutter = box(0.22, 0.9, 0.08, palette.timber);
-      shutter.position.set(sx * uw * 0.25 + shx * 0.46, groundH + upperH * 0.55, ud / 2 + 0.04);
-      g.add(shutter);
+  for (const yy of [baseTop + 0.1, baseTop + upperH - 0.1]) {
+    const beamX = box(uw, 0.16, postT, palette.timberDark);
+    beamX.position.set(0, yy, ud / 2);
+    g.add(beamX);
+    const beamXb = beamX.clone();
+    beamXb.position.z = -ud / 2;
+    g.add(beamXb);
+  }
+  for (const sz of [-1, 1]) {
+    for (const dir of [-1, 1]) {
+      const brace = box(0.13, upperH * 0.95, 0.13, palette.timber);
+      brace.position.set((dir * uw) / 4, baseTop + upperH / 2, (sz * ud) / 2);
+      brace.rotation.z = dir * 0.5;
+      g.add(brace);
     }
   }
+
+  // Projecting bay window (еркер) on the front.
+  const bayW = uw * 0.5;
+  const bay = box(bayW, upperH * 0.7, 0.6, plasterColor);
+  bay.position.set(0, baseTop + upperH * 0.55, ud / 2 + 0.3);
+  g.add(bay);
+  // corbel underneath
+  const corbel = new THREE.Mesh(
+    new THREE.ConeGeometry(0.5, 0.6, 4),
+    mat(palette.timberDark),
+  );
+  corbel.rotation.y = Math.PI / 4;
+  corbel.scale.set(bayW / 0.7, 1, 1);
+  corbel.position.set(0, baseTop + upperH * 0.18, ud / 2 + 0.3);
+  g.add(corbel);
+  addWindow(g, 0, baseTop + upperH * 0.58, ud / 2 + 0.61, false);
+
+  // Deep terracotta hip roof + a darker flared eave course beneath it.
+  const roofH = randRange(1.5, 2.0);
+  const roofRadius = Math.hypot(uw, ud) / 2 + 0.55;
+  const eave = new THREE.Mesh(new THREE.ConeGeometry(roofRadius, 0.45, 4), mat(palette.roofAlt, { shadowStrength: 0.45 }));
+  eave.rotation.y = Math.PI / 4;
+  eave.position.y = baseTop + upperH + 0.18;
+  g.add(eave);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(roofRadius * 0.92, roofH, 4), mat(roofColor, { shadowStrength: 0.5 }));
+  roof.rotation.y = Math.PI / 4;
+  roof.position.y = baseTop + upperH + 0.35 + roofH / 2;
+  g.add(roof);
+
+  // Chimney + cap; record its top for smoke emission.
+  const chX = uw * 0.22;
+  const chZ = -ud * 0.12;
+  const chTopY = baseTop + upperH + roofH * 0.7;
+  const chimney = box(0.46, 1.3, 0.46, palette.stoneDark);
+  chimney.position.set(chX, baseTop + upperH + roofH * 0.5, chZ);
+  g.add(chimney);
+  const cap = box(0.6, 0.16, 0.6, palette.stone);
+  cap.position.set(chX, chTopY, chZ);
+  g.add(cap);
+  g.userData.chimneyLocal = new THREE.Vector3(chX, chTopY + 0.2, chZ);
+
+  // Door with frame + lintel.
+  const doorFrame = box(1.06, 1.86, 0.1, palette.timber);
+  doorFrame.position.set(0, 0.2 + 0.93, d / 2 + 0.01);
+  g.add(doorFrame);
+  const door = box(0.86, 1.66, 0.12, palette.timberDark);
+  door.position.set(0, 0.2 + 0.83, d / 2 + 0.04);
+  g.add(door);
+
+  // Upper-storey windows flanking the bay, + a ground-floor window.
+  addWindow(g, -uw * 0.3, baseTop + upperH * 0.55, ud / 2 + 0.02);
+  addWindow(g, uw * 0.3, baseTop + upperH * 0.55, ud / 2 + 0.02);
+  addWindow(g, w * 0.3, 0.2 + groundH * 0.55, d / 2 + 0.02);
 
   outlineHierarchy(g, { thickness: 0.045, color: palette.ink });
   return g;
 }
 
-/** Small Orthodox chapel with a stone bell-tower and a cross. */
+/** A small cross (vertical + horizontal bars) centred at the given point. */
+function addCross(parent: THREE.Group, x: number, y: number, z: number, s = 1): void {
+  const v = box(0.12 * s, 0.9 * s, 0.12 * s, palette.ink);
+  v.position.set(x, y, z);
+  parent.add(v);
+  const h = box(0.5 * s, 0.12 * s, 0.12 * s, palette.ink);
+  h.position.set(x, y + 0.12 * s, z);
+  parent.add(h);
+}
+
+/** Small Orthodox chapel: plastered nave, apse, a domed drum, a stone bell-tower and crosses. */
 export function createChapel(): THREE.Group {
   const g = new THREE.Group();
   g.name = 'Chapel';
 
-  const w = 4.2;
-  const d = 6.0;
+  const w = 4.4;
+  const d = 6.2;
   const bodyH = 3.4;
 
   const body = box(w, bodyH, d, palette.plaster);
   body.position.y = bodyH / 2;
   g.add(body);
 
-  // Gable roof (a 4-sided pyramid stretched along the nave).
-  const gable = new THREE.Mesh(
-    new THREE.ConeGeometry(w * 0.72, 1.7, 4),
-    mat(palette.roof, { shadowStrength: 0.5 }),
-  );
+  // Gable roof along the nave, with a small dark eave.
+  const gable = new THREE.Mesh(new THREE.ConeGeometry(w * 0.74, 1.7, 4), mat(palette.roof, { shadowStrength: 0.5 }));
   gable.rotation.y = Math.PI / 4;
   gable.scale.set(1, 1, d / w);
   gable.position.y = bodyH + 0.85;
   g.add(gable);
 
-  // Apse (semicircular-ish) at the back.
+  // Apse at the back.
   const apse = new THREE.Mesh(
-    new THREE.CylinderGeometry(w * 0.45, w * 0.45, bodyH * 0.85, 12, 1, false, -Math.PI / 2, Math.PI),
+    new THREE.CylinderGeometry(w * 0.45, w * 0.45, bodyH * 0.85, 14, 1, false, -Math.PI / 2, Math.PI),
     mat(palette.plaster),
   );
   apse.position.set(0, (bodyH * 0.85) / 2, -d / 2);
   g.add(apse);
 
-  // Stone bell-tower at the front.
-  const towerH = 5.5;
-  const tower = box(1.6, towerH, 1.6, palette.stone);
-  tower.position.set(0, towerH / 2, d / 2 - 0.8);
-  g.add(tower);
-  const towerRoof = new THREE.Mesh(
-    new THREE.ConeGeometry(1.4, 1.6, 4),
-    mat(palette.roofAlt, { shadowStrength: 0.5 }),
+  // Domed drum over the nave (Orthodox cupola).
+  const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 1.0, 14), mat(palette.plaster));
+  drum.position.set(0, bodyH + 1.5, -d * 0.1);
+  g.add(drum);
+  const dome = new THREE.Mesh(
+    new THREE.SphereGeometry(0.95, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+    mat('#7d8a93', { shadowStrength: 0.5, rimStrength: 0.5 }),
   );
-  towerRoof.rotation.y = Math.PI / 4;
-  towerRoof.position.set(0, towerH + 0.8, d / 2 - 0.8);
-  g.add(towerRoof);
+  dome.position.set(0, bodyH + 2.0, -d * 0.1);
+  g.add(dome);
+  addCross(g, 0, bodyH + 3.0, -d * 0.1, 0.7);
 
-  // Cross.
-  const crossV = box(0.12, 0.9, 0.12, palette.ink);
-  crossV.position.set(0, towerH + 2.0, d / 2 - 0.8);
-  g.add(crossV);
-  const crossH = box(0.5, 0.12, 0.12, palette.ink);
-  crossH.position.set(0, towerH + 2.05, d / 2 - 0.8);
-  g.add(crossH);
+  // Stone bell-tower at the front, with an arched opening.
+  const towerH = 5.6;
+  const tower = box(1.7, towerH, 1.7, palette.stone);
+  tower.position.set(0, towerH / 2, d / 2 - 0.85);
+  g.add(tower);
+  const belfry = box(1.0, 1.0, 0.5, palette.window, { shadowStrength: 0.8 });
+  belfry.position.set(0, towerH - 1.0, d / 2 - 0.85 + 0.62);
+  g.add(belfry);
+  const towerRoof = new THREE.Mesh(new THREE.ConeGeometry(1.5, 1.7, 4), mat(palette.roofAlt, { shadowStrength: 0.5 }));
+  towerRoof.rotation.y = Math.PI / 4;
+  towerRoof.position.set(0, towerH + 0.85, d / 2 - 0.85);
+  g.add(towerRoof);
+  addCross(g, 0, towerH + 2.0, d / 2 - 0.85);
 
   outlineHierarchy(g, { thickness: 0.05, color: palette.ink });
   return g;
 }
 
-/** Stone чешма (public water fountain) with a basin and spout. */
+/** Stone чешма (public water fountain): an arched wall with two spouts, a trough and a cornice. */
 export function createCheshma(): THREE.Group {
   const g = new THREE.Group();
   g.name = 'Cheshma';
 
-  const wall = box(2.4, 2.6, 0.7, palette.stone);
-  wall.position.y = 1.3;
+  const wall = box(2.6, 2.8, 0.7, palette.stone);
+  wall.position.y = 1.4;
   g.add(wall);
 
-  // Decorative arch niche.
-  const niche = box(1.2, 1.4, 0.3, palette.stoneDark);
-  niche.position.set(0, 1.3, 0.32);
-  g.add(niche);
+  // Cornice cap.
+  const cornice = box(2.9, 0.3, 0.95, palette.stoneDark);
+  cornice.position.y = 2.85;
+  g.add(cornice);
 
-  // Basin.
-  const basin = box(2.0, 0.5, 1.1, palette.stoneDark);
-  basin.position.set(0, 0.45, 0.7);
-  g.add(basin);
-  const water = box(1.7, 0.12, 0.8, '#7fb0c0', { shadowStrength: 0.8, rimStrength: 0.6 });
-  water.position.set(0, 0.66, 0.7);
+  // Recessed arched niche: rectangular recess + a half-cylinder arch on top.
+  const niche = box(1.3, 1.5, 0.32, palette.stoneDark);
+  niche.position.set(0, 1.3, 0.33);
+  g.add(niche);
+  const arch = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.65, 0.65, 0.32, 14, 1, false, 0, Math.PI),
+    mat(palette.stoneDark),
+  );
+  arch.rotation.z = -Math.PI / 2;
+  arch.rotation.y = Math.PI / 2;
+  arch.position.set(0, 2.05, 0.33);
+  g.add(arch);
+
+  // Long stone trough + water.
+  const trough = box(2.4, 0.55, 0.95, palette.stoneDark);
+  trough.position.set(0, 0.5, 0.75);
+  g.add(trough);
+  const water = box(2.1, 0.12, 0.7, '#7fb0c0', { shadowStrength: 0.85, rimStrength: 0.6 });
+  water.position.set(0, 0.74, 0.75);
   g.add(water);
 
-  // Spout.
-  const spout = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.06, 0.06, 0.4, 8),
-    mat(palette.ink),
-  );
-  spout.rotation.x = Math.PI / 2.3;
-  spout.position.set(0, 1.1, 0.45);
-  g.add(spout);
+  // Two brass spouts.
+  for (const sx of [-0.5, 0.5]) {
+    const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.45, 8), mat('#7a5a32'));
+    spout.rotation.x = Math.PI / 2.4;
+    spout.position.set(sx, 1.15, 0.5);
+    g.add(spout);
+  }
 
   outlineHierarchy(g, { thickness: 0.04, color: palette.ink });
   return g;
@@ -339,8 +427,66 @@ export function fenceMaterial(): THREE.ShaderMaterial {
 export function bushGeometry(): THREE.BufferGeometry {
   const geo = new THREE.IcosahedronGeometry(0.7, 1);
   geo.scale(1, 0.7, 1);
+  geo.translate(0, 0.35, 0); // base near y = 0
   return geo;
 }
 export function bushMaterial(): THREE.ShaderMaterial {
-  return mat(palette.leafB, { shadowStrength: 0.5 });
+  return mat(palette.leafB, { shadowStrength: 0.5, windStrength: 0.18 });
+}
+
+// --- instanced trees (one trunk field + one foliage field per kind, sharing matrices) ---
+// Geometries bake their height in (base at y = 0) so a single surface matrix places the whole
+// tree; per-instance scale gives size variety. Splitting trunk/foliage keeps draw calls tiny.
+
+export function leafyTrunkGeometry(): THREE.BufferGeometry {
+  const geo = new THREE.CylinderGeometry(0.22, 0.32, 1.5, 7);
+  geo.translate(0, 0.75, 0);
+  return geo;
+}
+export function leafyFoliageGeometry(): THREE.BufferGeometry {
+  const geo = new THREE.IcosahedronGeometry(1.45, 1);
+  geo.scale(1, 0.95, 1);
+  geo.translate(0, 2.5, 0);
+  return geo;
+}
+export function cypressTrunkGeometry(): THREE.BufferGeometry {
+  const geo = new THREE.CylinderGeometry(0.16, 0.24, 0.8, 6);
+  geo.translate(0, 0.4, 0);
+  return geo;
+}
+export function cypressFoliageGeometry(): THREE.BufferGeometry {
+  const geo = new THREE.ConeGeometry(0.9, 4.6, 8);
+  geo.translate(0, 0.8 + 2.3, 0);
+  return geo;
+}
+export function trunkMaterial(): THREE.ShaderMaterial {
+  return mat(palette.trunk, { shadowStrength: 0.55 });
+}
+export function foliageMaterial(color: string): THREE.ShaderMaterial {
+  return mat(color, { shadowStrength: 0.5, windStrength: 0.22 });
+}
+
+/** A heavy wooden gate (порта) flanked by stone piers — placed along garden walls. */
+export function createGate(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'Gate';
+  for (const sx of [-1, 1]) {
+    const pier = box(0.4, 2.2, 0.5, palette.stone);
+    pier.position.set(sx * 0.95, 1.1, 0);
+    g.add(pier);
+  }
+  const doors = box(1.5, 1.9, 0.18, palette.timberDark);
+  doors.position.set(0, 0.95, 0);
+  g.add(doors);
+  const split = box(0.06, 1.9, 0.2, palette.ink);
+  split.position.set(0, 0.95, 0.01);
+  g.add(split);
+  // little tiled roof over the gate
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(1.6, 0.6, 4), mat(palette.roof, { shadowStrength: 0.5 }));
+  roof.rotation.y = Math.PI / 4;
+  roof.scale.set(1, 1, 0.45);
+  roof.position.set(0, 2.5, 0);
+  g.add(roof);
+  outlineHierarchy(g, { thickness: 0.035, color: palette.ink });
+  return g;
 }

@@ -88,13 +88,23 @@ src/
 - [x] **Phase 3 — Atmosphere:** painterly sky dome, warm lighting, paper-grain post-FX.
 - [x] **Phase 4 — World placement:** `placeOnSurface`; primitive houses/trees on the sphere,
       instanced cobblestones, fences and bushes wrapping the whole globe.
-- [ ] **Phase 5 — Village assets:** swap primitives for modeled Revival houses, чешма, chapel.
-- [ ] **Phase 6 — Life & polish:** chimney smoke / leaf particles, idle animation, sound,
-      draw-call audit.
+- [x] **Phase 5 — Village assets:** detailed Revival houses (timber framing + bay window/еркер +
+      deep eaves + framed shutters), a domed chapel with bell-tower, an arched чешма, and a
+      wooden gate (порта), laid out around a coherent square with streets.
+- [x] **Phase 6 — Life & polish:** chimney smoke + drifting-leaf particles, gentle foliage wind,
+      idle breathing animation, procedural ambient wind (Web Audio), and a draw-call pass
+      (all high-count props instanced).
 
-Props in Phases 4 are deliberately built from Three.js primitives as Bulgarian-Revival
-stand-ins (terracotta roofs, whitewashed plaster, timber overhangs, stone чешма) so the world
-reads correctly before real glTF/GLB models are dropped into `src/assets/`.
+Assets are modeled **procedurally** from Three.js primitives (no external GLB pipeline in this
+environment) but read unmistakably as Bulgarian Revival — terracotta roofs, whitewashed plaster,
+timber overhangs, stone чешма. Drop real glTF/GLB into `src/assets/` to swap them later.
+
+### Performance
+
+High-count props — cobblestones, fences, bushes, and **all trees** (trunk + foliage instanced
+separately but sharing matrices) — are `InstancedMesh`, keeping hundreds of objects to a handful
+of draw calls. The dozen-or-so hero buildings remain grouped meshes. Particles are two
+CPU-updated `THREE.Points` systems (one draw call each). Distance fog hides the far hemisphere.
 
 ## Performance notes
 

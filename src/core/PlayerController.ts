@@ -31,6 +31,7 @@ export class PlayerController {
 
   private visual: THREE.Group;
   private bobTime = 0;
+  private idleTime = 0;
   private targetQuat = new THREE.Quaternion();
 
   // scratch
@@ -142,11 +143,17 @@ export class PlayerController {
       this.orthonormalizeForward();
     }
 
-    // walking bob
+    // walking bob, or a gentle idle breathing when stood still
     const moving = this.currentSpeed > 0.5;
-    if (moving) this.bobTime += dt * this.currentSpeed * 1.1;
-    const bob = moving ? Math.abs(Math.sin(this.bobTime)) * 0.12 : 0;
-    this.visual.position.y = bob;
+    if (moving) {
+      this.bobTime += dt * this.currentSpeed * 1.1;
+      this.visual.position.y = Math.abs(Math.sin(this.bobTime)) * 0.12;
+      this.visual.scale.y = 1;
+    } else {
+      this.idleTime += dt;
+      this.visual.position.y = Math.sin(this.idleTime * 1.6) * 0.03;
+      this.visual.scale.y = 1 + Math.sin(this.idleTime * 1.6) * 0.012;
+    }
 
     this.syncTransform(dt);
   }

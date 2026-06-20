@@ -25,6 +25,8 @@ export interface ToonMaterialOptions {
   rimStrength?: number;
   /** Fresnel falloff for the rim; higher = thinner rim. */
   rimPower?: number;
+  /** Wind sway amount for foliage (0 = rigid; buildings leave this at 0). */
+  windStrength?: number;
 }
 
 export interface ToonGlobals {
@@ -46,12 +48,23 @@ export const toonGlobals: ToonGlobals = {
 };
 
 const vertexShader = /* glsl */ `
+  uniform float uTime;
+  uniform float uWindStrength;
   varying vec3 vWorldNormal;
   varying vec3 vWorldPosition;
 
   void main() {
     vec3 transformed = position;
     vec3 objNormal = normal;
+
+    // Gentle wind sway in object space (base stays put, tops sway). Buildings use 0 strength.
+    if (uWindStrength > 0.0) {
+      float h = max(position.y, 0.0);
+      float phase = uTime * 1.6;
+      transformed.x += sin(phase) * uWindStrength * h * 0.08;
+      transformed.z += cos(phase * 0.83) * uWindStrength * h * 0.08;
+    }
+
     // ShaderMaterial gets the instanceMatrix attribute + USE_INSTANCING define for free.
     #ifdef USE_INSTANCING
       transformed = (instanceMatrix * vec4(transformed, 1.0)).xyz;
@@ -142,6 +155,8 @@ export function createToonMaterial(options: ToonMaterialOptions = {}): THREE.Sha
       uFogColor: { value: new THREE.Color('#cfe0ec') },
       uFogNear: { value: 90 },
       uFogFar: { value: 240 },
+      uTime: { value: 0 },
+      uWindStrength: { value: options.windStrength ?? 0 },
     },
   });
   registry.add(material);
@@ -156,6 +171,7 @@ export function updateToonLighting(params: {
   fogColor: THREE.Color;
   fogNear: number;
   fogFar: number;
+  time: number;
 }): void {
   for (const material of registry) {
     const u = material.uniforms;
@@ -165,6 +181,7 @@ export function updateToonLighting(params: {
     u.uFogColor.value.copy(params.fogColor);
     u.uFogNear.value = params.fogNear;
     u.uFogFar.value = params.fogFar;
+    u.uTime.value = params.time;
   }
 }
 
