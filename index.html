@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Selo — спокойствие на едно малко кълбо</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #8fb6d6;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+      }
+      #app {
+        position: fixed;
+        inset: 0;
+      }
+      canvas {
+        display: block;
+      }
+      #hud {
+        position: fixed;
+        left: 16px;
+        bottom: 16px;
+        padding: 10px 14px;
+        border-radius: 10px;
+        background: rgba(40, 30, 24, 0.55);
+        color: #f4ecd8;
+        font-size: 13px;
+        line-height: 1.5;
+        pointer-events: none;
+        user-select: none;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        max-width: 280px;
+      }
+      #hud b {
+        color: #ffd9a0;
+      }
+      #title {
+        position: fixed;
+        left: 16px;
+        top: 14px;
+        color: #f4ecd8;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+        pointer-events: none;
+        user-select: none;
+      }
+      #title h1 {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+      #title p {
+        font-size: 12px;
+        opacity: 0.85;
+      }
+      #loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #8fb6d6;
+        color: #3a4a5a;
+        font-size: 15px;
+        transition: opacity 0.6s ease;
+        z-index: 10;
+      }
+      #loader.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="title">
+      <h1>Село</h1>
+      <p>a tiny Bulgarian Revival planet</p>
+    </div>
+    <div id="hud">
+      <b>WASD</b> walk &nbsp;·&nbsp; <b>Mouse</b> look (click to capture)<br />
+      <b>Shift</b> run &nbsp;·&nbsp; <b>Scroll</b> zoom &nbsp;·&nbsp; <b>Esc</b> release<br />
+      Walk all the way around — there are no poles.
+    </div>
+    <div id="loader">Изгрява слънцето над селото…</div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
