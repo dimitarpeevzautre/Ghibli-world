@@ -198,7 +198,7 @@ export function createHouse(): THREE.Group {
   addWindow(g, uw * 0.3, baseTop + upperH * 0.55, ud / 2 + 0.02);
   addWindow(g, w * 0.3, 0.2 + groundH * 0.55, d / 2 + 0.02);
 
-  g.userData.footprint = Math.hypot(w, d) / 2 + 0.2;
+  g.userData.footprint = Math.max(w, d) * 0.5 + 0.15;
   outlineHierarchy(g, { thickness: 0.045, color: palette.ink });
   return g;
 }
@@ -267,7 +267,7 @@ export function createChapel(): THREE.Group {
   g.add(towerRoof);
   addCross(g, 0, towerH + 2.0, d / 2 - 0.85);
 
-  g.userData.footprint = Math.hypot(w, d) / 2 + 0.2;
+  g.userData.footprint = Math.max(w, d) * 0.5 + 0.2;
   outlineHierarchy(g, { thickness: 0.05, color: palette.ink });
   return g;
 }
@@ -491,5 +491,87 @@ export function createGate(): THREE.Group {
   roof.position.set(0, 2.5, 0);
   g.add(roof);
   outlineHierarchy(g, { thickness: 0.035, color: palette.ink });
+  return g;
+}
+
+/** A long stone-and-timber barn with a gable roof — for outlying farmsteads. */
+export function createBarn(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'Barn';
+  const w = randRange(3.0, 3.8);
+  const d = randRange(5.0, 7.0);
+  const h = randRange(2.2, 2.8);
+  const stoneH = h * 0.4;
+  const base = box(w, stoneH, d, palette.stone);
+  base.position.y = stoneH / 2;
+  g.add(base);
+  const tim = box(w, h - stoneH, d, palette.timber);
+  tim.position.y = stoneH + (h - stoneH) / 2;
+  g.add(tim);
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(w * 0.74, 1.4, 4), mat(palette.roofAlt, { shadowStrength: 0.5 }));
+  roof.rotation.y = Math.PI / 4;
+  roof.scale.set(1, 1, d / w);
+  roof.position.y = h + 0.7;
+  g.add(roof);
+  const door = box(1.5, 1.9, 0.12, palette.timberDark);
+  door.position.set(0, 0.95, d / 2 + 0.02);
+  g.add(door);
+  g.userData.footprint = Math.max(w, d) * 0.5 + 0.15;
+  outlineHierarchy(g, { thickness: 0.045, color: palette.ink });
+  return g;
+}
+
+/** A wayside stone cross (крайпътен кръст) for a far hilltop. */
+export function createWaysideCross(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'WaysideCross';
+  const base = box(1.0, 0.6, 1.0, palette.stone);
+  base.position.y = 0.3;
+  g.add(base);
+  const plinth = box(0.5, 0.5, 0.5, palette.stoneDark);
+  plinth.position.y = 0.85;
+  g.add(plinth);
+  addCross(g, 0, 1.7, 0, 1.5);
+  g.userData.footprint = 0.9;
+  outlineHierarchy(g, { thickness: 0.03, color: palette.ink });
+  return g;
+}
+
+/** A flat pond (still water + muddy bank), to nestle into a hollow. No outline (flat disc). */
+export function createPond(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'Pond';
+  const r = randRange(3.0, 5.0);
+  const bank = new THREE.Mesh(new THREE.CircleGeometry(r + 0.7, 28), mat('#6b5a3a', { shadowStrength: 0.6 }));
+  bank.geometry.rotateX(-Math.PI / 2);
+  bank.position.y = 0.04;
+  g.add(bank);
+  const water = new THREE.Mesh(
+    new THREE.CircleGeometry(r, 28),
+    mat('#6fa6bf', { shadowStrength: 0.9, rimStrength: 0.5 }),
+  );
+  water.geometry.rotateX(-Math.PI / 2);
+  water.position.y = 0.08;
+  g.add(water);
+  return g;
+}
+
+/** A few stepped retaining walls with planted strips — terraced hillside gardens. */
+export function createTerrace(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'Terrace';
+  const rows = 3;
+  const len = randRange(4.5, 6.5);
+  for (let i = 0; i < rows; i++) {
+    const y = 0.25 + i * 0.45;
+    const z = i * 1.7 - 1.7;
+    const wall = box(len, 0.5, 0.35, palette.stone);
+    wall.position.set(0, y, z);
+    g.add(wall);
+    const strip = box(len - 0.2, 0.14, 1.3, palette.leafB, { shadowStrength: 0.5 });
+    strip.position.set(0, y + 0.05, z + 0.85);
+    g.add(strip);
+  }
+  outlineHierarchy(g, { thickness: 0.03, color: palette.ink });
   return g;
 }

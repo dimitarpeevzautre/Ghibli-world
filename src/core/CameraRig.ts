@@ -20,8 +20,8 @@ export class CameraRig {
 
   /** Solid meshes to keep the camera from passing through (set from VillageLayout). */
   colliders: THREE.Object3D[] = [];
-  collisionMargin = 0.6; // keep this far off a wall
-  minClampDistance = 2.5; // never come closer than this to the look target
+  collisionMargin = 0.4; // keep this far off a wall
+  minClampDistance = 0.5; // floor on camera->target distance (never pushed past the wall)
 
   private smoothedUp = new THREE.Vector3(0, 1, 0);
   private smoothedTarget = new THREE.Vector3();
@@ -116,7 +116,8 @@ export class CameraRig {
     this.raycaster.far = dist;
     const hits = this.raycaster.intersectObjects(this.colliders, false);
     if (hits.length > 0) {
-      const d = Math.max(hits[0].distance - this.collisionMargin, this.minClampDistance);
+      // Sit just in front of the wall, but never closer than the floor and never *past* the wall.
+      const d = THREE.MathUtils.clamp(hits[0].distance - this.collisionMargin, this.minClampDistance, hits[0].distance);
       to.copy(from).addScaledVector(this._dir, d);
     }
   }

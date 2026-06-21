@@ -99,6 +99,15 @@ Assets are modeled **procedurally** from Three.js primitives (no external GLB pi
 environment) but read unmistakably as Bulgarian Revival — terracotta roofs, whitewashed plaster,
 timber overhangs, stone чешма. Drop real glTF/GLB into `src/assets/` to swap them later.
 
+### The map
+
+`VillageLayout` builds a **core village + countryside** spread over the whole sphere. Every
+building goes through a rejection sampler that keeps footprints apart (so nothing intersects),
+and the same footprints drive player collision. The core is a square (чешма + chapel) ringed by
+collision-spaced houses along short cobbled lanes; the countryside scatters lone farmsteads,
+an orchard, a pond, terraced gardens, a hilltop cross and fields of haystacks across the globe,
+with cobble paths linking the nearest farmsteads to the square.
+
 ### Performance
 
 High-count props — cobblestones, fences, bushes, and **all trees** (trunk + foliage instanced
