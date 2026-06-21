@@ -57,6 +57,16 @@ pole singularities. Vectors and quaternions throughout.
 - **Ink outlines** via the inverted-hull method (`render/OutlinePass.ts`), instancing-aware.
 - **Painterly sky dome** with a watercolour gradient + drifting noise clouds (`render/SkyDome.ts`).
 - **Paper-grain / colour-grade** post-process (`render/PostFX.ts`, EffectComposer + OutputPass).
+- **Real-time soft shadows** from the sun: the toon material samples a directional shadow map
+  (`getShadowMask`) whose camera follows the player, grounding everything as it roams the globe.
+
+## Models (optional GLB)
+
+Buildings are procedural by default, but any can be replaced by a glTF/GLB model dropped in
+`public/models/` (`house.glb`, `chapel.glb`, `cheshma.glb`, `barn.glb`, `gate.glb`, `cross.glb`).
+`world/ModelLibrary.ts` loads them, re-materialises to the cel-shaded toon look + ink outline,
+normalises them onto the surface, and falls back to procedural for any missing file. See
+[`docs/MODELS.md`](docs/MODELS.md) for the AI image-to-3D workflow.
 
 ## Project layout
 

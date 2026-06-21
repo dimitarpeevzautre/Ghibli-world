@@ -9,12 +9,9 @@ import { SkyDome } from './render/SkyDome';
 import { PostFX } from './render/PostFX';
 import { VillageLayout } from './world/VillageLayout';
 import { Effects } from './world/Effects';
+import { ModelLibrary } from './world/ModelLibrary';
 import { Ambient } from './render/Ambient';
-import {
-  updateToonLighting,
-  toonGlobals,
-  applyToonGlobals,
-} from './render/ToonMaterial';
+import { updateToonLighting, toonGlobals, applyToonGlobals } from './render/ToonMaterial';
 import { setOutlineThickness, setOutlineColor } from './render/OutlinePass';
 
 // ---------------------------------------------------------------------------
@@ -27,54 +24,75 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 3000);
 
-const camera = new THREE.PerspectiveCamera(
-  55,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  3000,
-);
-
-// ---------------------------------------------------------------------------
-// World
-// ---------------------------------------------------------------------------
 const PLANET_RADIUS = 42;
+const VILLAGE_CENTER = new THREE.Vector3(0, 1, 0).normalize();
 const planet = new Planet(PLANET_RADIUS);
 scene.add(planet.group);
-
-const village = new VillageLayout(planet, new THREE.Vector3(0, 1, 0).normalize());
-scene.add(village.group);
-
-const player = new PlayerController(planet, new THREE.Vector3(0.0, 1.0, 0.06).normalize());
-// Face the village square at spawn so the opening shot looks inward toward the чешма.
-planet.tangentToward(player.up, new THREE.Vector3(0, 1, 0), player.forward);
-// Keep the player from walking through buildings.
-player.obstacles = village.obstacles;
-scene.add(player.root);
-
-const input = new Input(renderer.domElement);
-const cameraRig = new CameraRig(camera, player);
-// Let the camera avoid clipping through the village buildings.
-cameraRig.colliders = village.colliders;
 
 const sky = new SkyDome(PLANET_RADIUS * 9);
 scene.add(sky.mesh);
 
-// Life: chimney smoke + drifting leaves, and a procedural wind ambience.
-const effects = new Effects(village.chimneys, new THREE.Vector3(0, 1, 0).normalize(), PLANET_RADIUS);
-scene.add(effects.group);
+const postFX = new PostFX(renderer, scene, camera);
+const input = new Input(renderer.domElement);
 
 const ambient = new Ambient();
-// Start audio on the first user gesture (autoplay policy).
 const startAudio = () => ambient.start();
 window.addEventListener('pointerdown', startAudio, { once: true });
 window.addEventListener('keydown', startAudio, { once: true });
 window.addEventListener('touchstart', startAudio, { once: true });
 
-const postFX = new PostFX(renderer, scene, camera);
+// Optional GLB models — drop files in public/models/ (served at ./models/<name>.glb). Any that
+// load replace the procedural prop; missing ones fall back automatically. See docs/MODELS.md.
+const modelLibrary = new ModelLibrary([
+  { name: 'house', url: './models/house.glb', targetHeight: 6.5 },
+  { name: 'chapel', url: './models/chapel.glb', targetHeight: 10 },
+  { name: 'cheshma', url: './models/cheshma.glb', targetHeight: 3.2 },
+  { name: 'barn', url: './models/barn.glb', targetHeight: 4.5 },
+  { name: 'gate', url: './models/gate.glb', targetHeight: 3.2 },
+  { name: 'cross', url: './models/cross.glb', targetHeight: 2.6 },
+]);
+
+// ---------------------------------------------------------------------------
+// Shadow-casting sun (the toon shader does its own shading; this only renders a
+// directional shadow map sampled via getShadowMask(), and follows the player).
+// ---------------------------------------------------------------------------
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.set(2048, 2048);
+sunLight.shadow.camera.near = 1;
+sunLight.shadow.camera.far = 260;
+sunLight.shadow.camera.left = -48;
+sunLight.shadow.camera.right = 48;
+sunLight.shadow.camera.top = 48;
+sunLight.shadow.camera.bottom = -48;
+sunLight.shadow.bias = -0.0004;
+sunLight.shadow.normalBias = 0.7;
+scene.add(sunLight);
+scene.add(sunLight.target);
+
+function flagShadows(): void {
+  scene.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!(m as THREE.Mesh).isMesh && !(m as THREE.InstancedMesh).isInstancedMesh) return;
+    if (o.name.endsWith('__outline') || o.name === 'SkyDome') {
+      m.castShadow = false;
+      m.receiveShadow = false;
+    } else if (o.name === 'PlanetSurface') {
+      m.castShadow = false; // the globe only receives
+      m.receiveShadow = true;
+    } else {
+      m.castShadow = true;
+      m.receiveShadow = true;
+    }
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Sun / atmosphere state (drives both the toon shading and the sky)
@@ -99,7 +117,7 @@ function updateSunDir(): void {
 updateSunDir();
 
 // ---------------------------------------------------------------------------
-// lil-gui — live tuning
+// lil-gui — live tuning (folders not depending on the world are built up front)
 // ---------------------------------------------------------------------------
 const gui = new GUI({ title: 'Село — tuning' });
 gui.close();
@@ -147,22 +165,6 @@ fPost.add(postFX.grainPass.uniforms.uVignette, 'value', 0, 1, 0.01).name('vignet
 fPost.add(postFX.grainPass.uniforms.uSaturation, 'value', 0.5, 1.2, 0.01).name('saturation');
 fPost.add(postFX.grainPass.uniforms.uWarmth, 'value', -0.1, 0.2, 0.005).name('warmth');
 
-const fLife = gui.addFolder('Life & sound');
-fLife.add(effects, 'smokeEnabled').name('chimney smoke');
-fLife.add(effects, 'leavesEnabled').name('falling leaves');
-fLife.add(ambient, 'enabled').name('ambient wind').onChange((v: boolean) => ambient.setEnabled(v));
-fLife.add(ambient, 'volume', 0, 1, 0.01).name('wind volume');
-
-const fPlayer = gui.addFolder('Player & camera');
-fPlayer.add(player, 'walkSpeed', 2, 20, 0.5);
-fPlayer.add(player, 'runMultiplier', 1, 3, 0.1);
-fPlayer.add(cameraRig, 'distance', 6, 24, 0.5).listen();
-fPlayer.add(cameraRig, 'height', 1, 12, 0.5);
-fPlayer.close();
-
-// Note: props ship with individually-tuned outline widths; the slider above overrides them
-// globally only once the user drags it.
-
 // ---------------------------------------------------------------------------
 // Resize
 // ---------------------------------------------------------------------------
@@ -176,45 +178,79 @@ window.addEventListener('resize', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Loop
+// World build + loop (after optional models finish loading)
 // ---------------------------------------------------------------------------
-const clock = new THREE.Clock();
-let elapsed = 0;
+async function init(): Promise<void> {
+  await modelLibrary.preload();
 
-function tick(): void {
-  const dt = Math.min(clock.getDelta(), 0.05); // clamp big stalls
-  elapsed += dt;
+  const village = new VillageLayout(planet, VILLAGE_CENTER, modelLibrary);
+  scene.add(village.group);
 
-  const mouse = input.consumeMouseDelta();
-  const wheel = input.consumeWheel();
+  const player = new PlayerController(planet, new THREE.Vector3(0.0, 1.0, 0.06).normalize());
+  planet.tangentToward(player.up, new THREE.Vector3(0, 1, 0), player.forward); // face the square
+  player.obstacles = village.obstacles;
+  scene.add(player.root);
 
-  player.update(dt, input, mouse.x);
-  cameraRig.update(dt, mouse.y, wheel, input.lookActive);
+  const cameraRig = new CameraRig(camera, player);
+  cameraRig.colliders = village.colliders;
 
-  updateToonLighting({
-    lightDir: sunDir,
-    lightColor: atmosphere.lightColor,
-    ambient: atmosphere.ambient,
-    fogColor: atmosphere.fogColor,
-    fogNear: atmosphere.fogNear,
-    fogFar: atmosphere.fogFar,
-    time: elapsed,
-  });
+  const effects = new Effects(village.chimneys, VILLAGE_CENTER, PLANET_RADIUS);
+  scene.add(effects.group);
 
-  effects.update(dt, elapsed);
-  sky.update(elapsed, camera.position, sunDir);
+  const fLife = gui.addFolder('Life & sound');
+  fLife.add(effects, 'smokeEnabled').name('chimney smoke');
+  fLife.add(effects, 'leavesEnabled').name('falling leaves');
+  fLife.add(ambient, 'enabled').name('ambient wind').onChange((v: boolean) => ambient.setEnabled(v));
+  fLife.add(ambient, 'volume', 0, 1, 0.01).name('wind volume');
 
-  postFX.render(dt, elapsed);
+  const fPlayer = gui.addFolder('Player & camera');
+  fPlayer.add(player, 'walkSpeed', 2, 20, 0.5);
+  fPlayer.add(player, 'runMultiplier', 1, 3, 0.1);
+  fPlayer.add(cameraRig, 'distance', 6, 24, 0.5).listen();
+  fPlayer.add(cameraRig, 'height', 1, 12, 0.5);
+  fPlayer.close();
 
-  requestAnimationFrame(tick);
-}
+  flagShadows();
+  scene.updateMatrixWorld(true);
 
-// Make sure static building world-matrices exist before the camera raycasts against them.
-scene.updateMatrixWorld(true);
+  const clock = new THREE.Clock();
+  let elapsed = 0;
 
-// Hide the loader once the first frame is ready.
-requestAnimationFrame(() => {
+  function tick(): void {
+    const dt = Math.min(clock.getDelta(), 0.05);
+    elapsed += dt;
+
+    const mouse = input.consumeMouseDelta();
+    const wheel = input.consumeWheel();
+
+    player.update(dt, input, mouse.x);
+    cameraRig.update(dt, mouse.y, wheel, input.lookActive);
+
+    // Keep the shadow map centred on the player, lit from the sun direction.
+    sunLight.target.position.copy(player.position);
+    sunLight.position.copy(player.position).addScaledVector(sunDir, 90);
+    sunLight.target.updateMatrixWorld();
+
+    updateToonLighting({
+      lightDir: sunDir,
+      lightColor: atmosphere.lightColor,
+      ambient: atmosphere.ambient,
+      fogColor: atmosphere.fogColor,
+      fogNear: atmosphere.fogNear,
+      fogFar: atmosphere.fogFar,
+      time: elapsed,
+    });
+
+    effects.update(dt, elapsed);
+    sky.update(elapsed, camera.position, sunDir);
+    postFX.render(dt, elapsed);
+
+    requestAnimationFrame(tick);
+  }
+
   const loader = document.getElementById('loader');
   if (loader) loader.classList.add('hidden');
   tick();
-});
+}
+
+void init();

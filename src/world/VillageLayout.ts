@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { Planet } from '../core/Planet';
+import { ModelLibrary } from './ModelLibrary';
 import { makeOutlineMaterial } from '../render/OutlinePass';
 import {
   createHouse,
@@ -126,10 +127,16 @@ export class VillageLayout {
   constructor(
     private readonly planet: Planet,
     private readonly center = new THREE.Vector3(0, 1, 0).normalize(),
+    private readonly models?: ModelLibrary,
   ) {
     this.group.name = 'Village';
     setSeed(20260620);
     this.build();
+  }
+
+  /** Use a loaded GLB model for `name` if present, otherwise the procedural prop. */
+  private make(name: string, fallback: () => THREE.Object3D): THREE.Object3D {
+    return this.models?.get(name) ?? fallback();
   }
 
   // ---------------------------------------------------------------- transforms
@@ -208,7 +215,7 @@ export class VillageLayout {
    * Try to place a building facing `yaw` at `dir`; succeeds only if its footprint is clear.
    * Registers colliders, the player obstacle, and (optionally) a chimney emitter.
    */
-  private tryPlaceBuilding(group: THREE.Group, dir: THREE.Vector3, yaw: number, chimney = false): boolean {
+  private tryPlaceBuilding(group: THREE.Object3D, dir: THREE.Vector3, yaw: number, chimney = false): boolean {
     this.planet.surfacePoint(dir, 0, this._wp);
     const r = (group.userData.footprint as number) ?? 2.5;
     if (!this.isFree(this._wp, r)) return false;
@@ -248,14 +255,14 @@ export class VillageLayout {
   }
 
   private buildSquare(): void {
-    const cheshma = createCheshma();
+    const cheshma = this.make('cheshma', createCheshma);
     this.place(cheshma, this.center, this.yawFacingCenter(this.center), 1);
     this.addColliders(cheshma);
     this.addObstacle(cheshma);
     this.reserve(cheshma.position, cheshma.userData.footprint as number);
 
     const chapelDir = this.dirAround(0.18, 0.6);
-    const chapel = createChapel();
+    const chapel = this.make('chapel', createChapel);
     this.place(chapel, chapelDir, this.yawFacingCenter(chapelDir), 1);
     this.addColliders(chapel);
     this.addObstacle(chapel);
@@ -270,7 +277,7 @@ export class VillageLayout {
       const angle = randRange(0.13, 0.34);
       const az = rand() * Math.PI * 2;
       const dir = this.dirAround(angle, az);
-      const house = createHouse();
+      const house = this.make('house', createHouse);
       if (this.tryPlaceBuilding(house, dir, this.yawFacingCenter(dir) + randRange(-0.25, 0.25), true)) {
         placed++;
         // dressing in the yard (decoration, not collision-reserved)
@@ -288,12 +295,12 @@ export class VillageLayout {
     while (farms < 7 && attempts < 800) {
       attempts++;
       const dir = this.randomFarDir(0.6);
-      const house = createHouse();
+      const house = this.make('house', createHouse);
       if (!this.tryPlaceBuilding(house, dir, rand() * Math.PI * 2, true)) continue;
       farms++;
       this.farmsteads.push(dir.clone());
       // a barn a little way off
-      const barn = createBarn();
+      const barn = this.make('barn', createBarn);
       this.tryPlaceBuilding(barn, this.offsetDir(dir, 0.13, rand() * Math.PI * 2), rand() * Math.PI * 2);
       // haystacks + woodpile dressing
       const n = 1 + Math.floor(rand() * 3);
@@ -332,7 +339,7 @@ export class VillageLayout {
 
     // A wayside cross on a far hilltop.
     const cd = this.randomFarDir(0.7);
-    this.tryPlaceBuilding(createWaysideCross(), cd, rand() * Math.PI * 2);
+    this.tryPlaceBuilding(this.make('cross', createWaysideCross), cd, rand() * Math.PI * 2);
 
     // Fields of haystacks dotted around the countryside.
     for (let k = 0; k < 4; k++) {
@@ -418,7 +425,7 @@ export class VillageLayout {
     for (let i = 0; i < 4; i++) {
       const az = (i / 4) * Math.PI * 2 + 0.4;
       const dir = this.dirAround(0.39, az);
-      const gate = createGate();
+      const gate = this.make('gate', createGate);
       this.place(gate, dir, this.yawFacingCenter(dir), 1);
       this.addColliders(gate);
     }

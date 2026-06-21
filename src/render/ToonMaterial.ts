@@ -48,6 +48,8 @@ export const toonGlobals: ToonGlobals = {
 };
 
 const vertexShader = /* glsl */ `
+  #include <common>
+  #include <shadowmap_pars_vertex>
   uniform float uTime;
   uniform float uWindStrength;
   varying vec3 vWorldNormal;
@@ -74,12 +76,20 @@ const vertexShader = /* glsl */ `
     vWorldPosition = worldPosition.xyz;
     // Assumes (near-)uniform scale, which all our props use.
     vWorldNormal = normalize(mat3(modelMatrix) * objNormal);
+    // View-space normal for the shadow chunk's normal-bias.
+    vec3 transformedNormal = normalize(normalMatrix * objNormal);
+    #include <shadowmap_vertex>
     gl_Position = projectionMatrix * viewMatrix * worldPosition;
   }
 `;
 
 const fragmentShader = /* glsl */ `
   precision highp float;
+  uniform bool receiveShadow; // set per-object by the renderer; used by getShadowMask()
+  #include <common>
+  #include <packing>
+  #include <shadowmap_pars_fragment>
+  #include <shadowmask_pars_fragment>
 
   uniform vec3 uBaseColor;
   uniform vec3 uLightDir;      // world-space direction TOWARD the sun
@@ -117,10 +127,13 @@ const fragmentShader = /* glsl */ `
     float ndl = dot(N, L) * 0.5 + 0.5;       // wrap lighting -> softer terminator
     float lit = banded(ndl, max(1.0, uBands));
 
+    // Real-time cast shadows from the sun (1.0 = lit). Fold into the direct term only.
+    float shadow = getShadowMask();
+
     // Warm-shifted shadow: lerp from a tinted dark colour up to full base colour.
     vec3 shadowColor = uBaseColor * uShadowTint * uShadowStrength;
-    vec3 diffuse = mix(shadowColor, uBaseColor, lit);
-    vec3 color = diffuse * (uAmbient + uLightColor * lit);
+    vec3 diffuse = mix(shadowColor, uBaseColor, lit * shadow);
+    vec3 color = diffuse * (uAmbient + uLightColor * lit * shadow);
 
     // Fresnel rim light to lift silhouettes off the sky.
     float fresnel = pow(1.0 - max(dot(N, V), 0.0), uRimPower);
@@ -138,26 +151,30 @@ const fragmentShader = /* glsl */ `
 `;
 
 export function createToonMaterial(options: ToonMaterialOptions = {}): THREE.ShaderMaterial {
+  const own = {
+    uBaseColor: { value: new THREE.Color(options.color ?? '#c8b8a0') },
+    uLightDir: { value: new THREE.Vector3(0.5, 1.0, 0.3).normalize() },
+    uLightColor: { value: new THREE.Color('#fff1d8') },
+    uAmbient: { value: new THREE.Color('#5b6b85') },
+    uShadowTint: { value: new THREE.Color(options.shadowTint ?? toonGlobals.shadowTint) },
+    uShadowStrength: { value: options.shadowStrength ?? 0.55 },
+    uBands: { value: options.bands ?? toonGlobals.bands },
+    uRimColor: { value: new THREE.Color(options.rimColor ?? toonGlobals.rimColor) },
+    uRimStrength: { value: options.rimStrength ?? toonGlobals.rimStrength },
+    uRimPower: { value: options.rimPower ?? 3.0 },
+    uFogColor: { value: new THREE.Color('#cfe0ec') },
+    uFogNear: { value: 90 },
+    uFogFar: { value: 240 },
+    uTime: { value: 0 },
+    uWindStrength: { value: options.windStrength ?? 0 },
+  };
   const material = new THREE.ShaderMaterial({
     vertexShader,
     fragmentShader,
-    uniforms: {
-      uBaseColor: { value: new THREE.Color(options.color ?? '#c8b8a0') },
-      uLightDir: { value: new THREE.Vector3(0.5, 1.0, 0.3).normalize() },
-      uLightColor: { value: new THREE.Color('#fff1d8') },
-      uAmbient: { value: new THREE.Color('#5b6b85') },
-      uShadowTint: { value: new THREE.Color(options.shadowTint ?? toonGlobals.shadowTint) },
-      uShadowStrength: { value: options.shadowStrength ?? 0.55 },
-      uBands: { value: options.bands ?? toonGlobals.bands },
-      uRimColor: { value: new THREE.Color(options.rimColor ?? toonGlobals.rimColor) },
-      uRimStrength: { value: options.rimStrength ?? toonGlobals.rimStrength },
-      uRimPower: { value: options.rimPower ?? 3.0 },
-      uFogColor: { value: new THREE.Color('#cfe0ec') },
-      uFogNear: { value: 90 },
-      uFogFar: { value: 240 },
-      uTime: { value: 0 },
-      uWindStrength: { value: options.windStrength ?? 0 },
-    },
+    // lights:true + merging the lights UniformsLib gives the shadow chunks their uniforms
+    // (directionalShadowMap / Matrix / directionalLightShadows), populated by the renderer.
+    lights: true,
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.lights, own]),
   });
   registry.add(material);
   return material;
