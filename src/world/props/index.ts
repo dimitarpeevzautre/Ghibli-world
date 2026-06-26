@@ -418,6 +418,29 @@ export function cobblestoneMaterial(): THREE.ShaderMaterial {
   return mat(palette.stone, { shadowStrength: 0.6, rimStrength: 0.1 });
 }
 
+/** A single low-poly boulder (hero prop). */
+export function createBoulder(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'Boulder';
+  const r = randRange(0.5, 1.1);
+  const rock = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 0), mat(palette.stone, { shadowStrength: 0.6, rimStrength: 0.12 }));
+  rock.scale.set(randRange(0.9, 1.3), randRange(0.6, 0.9), randRange(0.9, 1.3));
+  rock.position.y = r * 0.45;
+  g.add(rock);
+  outlineHierarchy(g, { thickness: 0.03, color: palette.ink });
+  return g;
+}
+
+/** Geometry + material for instanced scattered boulders. */
+export function boulderGeometry(): THREE.BufferGeometry {
+  const geo = new THREE.IcosahedronGeometry(0.7, 0);
+  geo.scale(1.1, 0.7, 1.1);
+  return geo;
+}
+export function boulderMaterial(): THREE.ShaderMaterial {
+  return mat(palette.stone, { shadowStrength: 0.6, rimStrength: 0.12 });
+}
+
 /** Geometry + material for an instanced fence post + rails (we instance the post). */
 export function fencePostGeometry(): THREE.BufferGeometry {
   return new THREE.BoxGeometry(0.18, 1.1, 0.18);
