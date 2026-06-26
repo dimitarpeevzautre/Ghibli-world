@@ -33,7 +33,7 @@ const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerH
 
 const PLANET_RADIUS = 42;
 const VILLAGE_CENTER = new THREE.Vector3(0, 1, 0).normalize();
-const planet = new Planet(PLANET_RADIUS);
+const planet = new Planet(PLANET_RADIUS, VILLAGE_CENTER);
 scene.add(planet.group);
 
 const sky = new SkyDome(PLANET_RADIUS * 9);

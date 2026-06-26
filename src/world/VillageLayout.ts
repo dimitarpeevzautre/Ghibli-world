@@ -140,11 +140,21 @@ export class VillageLayout {
   }
 
   // ---------------------------------------------------------------- transforms
-  private surfaceMatrix(dir: THREE.Vector3, height: number, yaw: number, scale: number): THREE.Matrix4 {
+  private surfaceMatrix(
+    dir: THREE.Vector3,
+    height: number,
+    yaw: number,
+    scale: number,
+    up: 'radial' | 'normal' = 'radial',
+  ): THREE.Matrix4 {
     const d = this._tan.copy(dir).normalize();
-    this._pos.copy(d).multiplyScalar(this.planet.radius + height);
-    this._q.setFromUnitVectors(UP, d);
-    this._spin.setFromAxisAngle(d, yaw);
+    const h = this.planet.terrain.heightAt(d);
+    this._pos.copy(d).multiplyScalar(this.planet.radius + h + height);
+    const upVec = up === 'normal'
+      ? this.planet.terrain.normalAt(d, this.planet.radius, new THREE.Vector3())
+      : d;
+    this._q.setFromUnitVectors(UP, upVec);
+    this._spin.setFromAxisAngle(upVec, yaw);
     this._q.premultiply(this._spin);
     this._scale.setScalar(scale);
     return this._m.compose(this._pos, this._q, this._scale);

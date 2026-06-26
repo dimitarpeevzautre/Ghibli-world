@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { createToonMaterial } from '../render/ToonMaterial';
 import { addOutline } from '../render/OutlinePass';
+import { Terrain } from './Terrain';
 
 /**
  * The planet is a REAL sphere centred at the origin — no curved-world vertex trickery.
@@ -9,20 +10,23 @@ import { addOutline } from '../render/OutlinePass';
  */
 export class Planet {
   readonly radius: number;
+  readonly terrain: Terrain;
   readonly mesh: THREE.Mesh;
   readonly group: THREE.Group;
 
   private static readonly UP = new THREE.Vector3(0, 1, 0);
 
-  constructor(radius = 40) {
+  constructor(radius = 40, center = new THREE.Vector3(0, 1, 0).normalize()) {
     this.radius = radius;
+    this.terrain = new Terrain(center);
     this.group = new THREE.Group();
     this.group.name = 'Planet';
 
-    // Icosphere -> even triangle distribution (no pole pinching like lat/long spheres).
     const geometry = new THREE.IcosahedronGeometry(radius, 24);
+    this.displace(geometry); // push vertices to terrain height + set analytic normals
+
     const material = createToonMaterial({
-      color: '#8aa05a', // warm village green
+      color: '#8aa05a',
       bands: 3,
       shadowStrength: 0.6,
       rimStrength: 0.15,
@@ -31,22 +35,40 @@ export class Planet {
     this.mesh.name = 'PlanetSurface';
     this.group.add(this.mesh);
 
-    // A faint ink rim around the whole globe helps it read as a drawn object.
     addOutline(this.mesh, { thickness: 0.12, color: '#3a4226' });
   }
 
-  /** Local "up" at a world-space point: the outward surface normal. */
+  /** Displace each vertex to the terrain surface and assign smooth analytic normals. */
+  private displace(geometry: THREE.BufferGeometry): void {
+    const pos = geometry.getAttribute('position') as THREE.BufferAttribute;
+    const nrm = geometry.getAttribute('normal') as THREE.BufferAttribute;
+    const dir = new THREE.Vector3();
+    const n = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      dir.set(pos.getX(i), pos.getY(i), pos.getZ(i)).normalize();
+      const h = this.terrain.heightAt(dir);
+      pos.setXYZ(i, dir.x * (this.radius + h), dir.y * (this.radius + h), dir.z * (this.radius + h));
+      this.terrain.normalAt(dir, this.radius, n);
+      nrm.setXYZ(i, n.x, n.y, n.z);
+    }
+    pos.needsUpdate = true;
+    nrm.needsUpdate = true;
+  }
+
+  /** Local "up": the true terrain surface normal at the given world-space point. */
   localUp(point: THREE.Vector3, target = new THREE.Vector3()): THREE.Vector3 {
+    return this.terrain.normalAt(this._p1.copy(point).normalize(), this.radius, target);
+  }
+
+  /** Pure radial up (level horizon) — fallback for anything that must ignore slope. */
+  radialUp(point: THREE.Vector3, target = new THREE.Vector3()): THREE.Vector3 {
     return target.copy(point).normalize();
   }
 
   /** World-space point on (or above) the surface for a given outward direction. */
-  surfacePoint(
-    direction: THREE.Vector3,
-    height = 0,
-    target = new THREE.Vector3(),
-  ): THREE.Vector3 {
-    return target.copy(direction).normalize().multiplyScalar(this.radius + height);
+  surfacePoint(direction: THREE.Vector3, height = 0, target = new THREE.Vector3()): THREE.Vector3 {
+    const d = this._p1.copy(direction).normalize();
+    return target.copy(d).multiplyScalar(this.radius + this.terrain.heightAt(d) + height);
   }
 
   /**
@@ -61,14 +83,15 @@ export class Planet {
     direction: THREE.Vector3,
     height = 0,
     yaw = 0,
+    up: 'radial' | 'normal' = 'radial',
   ): void {
-    const up = this._p1.copy(direction).normalize();
-    this.surfacePoint(up, height, object.position);
+    const dir = this._p1.copy(direction).normalize();
+    this.surfacePoint(dir, height, object.position);
 
-    // facing (+Z) = zero tangent rotated around the normal by yaw.
-    const facing = this.arbitraryTangent(up, this._p2).applyAxisAngle(up, yaw);
-    const xAxis = this._p3.copy(up).cross(facing).normalize();
-    this._basis.makeBasis(xAxis, up, facing);
+    const upVec = up === 'normal' ? this.terrain.normalAt(dir, this.radius, this._p2) : this._p2.copy(dir);
+    const facing = this.arbitraryTangent(upVec, this._p3).applyAxisAngle(upVec, yaw);
+    const xAxis = new THREE.Vector3().copy(upVec).cross(facing).normalize();
+    this._basis.makeBasis(xAxis, upVec, facing);
     object.quaternion.setFromRotationMatrix(this._basis);
   }
 
