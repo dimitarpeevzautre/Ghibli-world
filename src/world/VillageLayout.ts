@@ -20,6 +20,8 @@ import {
   fenceMaterial,
   bushGeometry,
   bushMaterial,
+  boulderGeometry,
+  boulderMaterial,
   leafyTrunkGeometry,
   leafyFoliageGeometry,
   cypressTrunkGeometry,
@@ -445,32 +447,86 @@ export class VillageLayout {
     const leafy: Scatter[] = [...this.extraLeafy];
     const cypress: Scatter[] = [];
     const bushes: Scatter[] = [...this.extraBushes];
+    const boulders: Scatter[] = [];
 
-    for (let i = 0; i < 320; i++) {
+    this.buildForests(leafy, cypress);
+    this.buildHighland(boulders, bushes);
+    this.buildRiverside(leafy, bushes);
+
+    // Light ambient bushes everywhere except the village core (keeps the globe lived-in).
+    for (let i = 0; i < 360; i++) {
       const dir = this.randomDirection();
       const distToCenter = Math.acos(THREE.MathUtils.clamp(dir.dot(this.center), -1, 1));
-      if (distToCenter < 0.42) continue; // keep the village core clear of wild trees
-      this.planet.surfacePoint(dir, 0, this._wp);
-      if (!this.isFree(this._wp, 1.3, 0)) continue; // don't grow trees inside buildings
-      const entry = { dir, yaw: rand() * Math.PI * 2, scale: randRange(0.8, 1.3) };
-      if (rand() > 0.78) cypress.push(entry);
-      else leafy.push(entry);
-    }
-
-    for (let i = 0; i < 500; i++) {
-      const dir = this.randomDirection();
-      const distToCenter = Math.acos(THREE.MathUtils.clamp(dir.dot(this.center), -1, 1));
-      if (distToCenter < 0.22) continue;
-      bushes.push({ dir, yaw: rand() * Math.PI * 2, scale: randRange(0.6, 1.4) });
+      if (distToCenter < 0.24) continue;
+      bushes.push({ dir, yaw: rand() * Math.PI * 2, scale: randRange(0.6, 1.3) });
     }
 
     this.buildTreeField(leafy, leafyTrunkGeometry(), leafyFoliageGeometry(), palette.leafA, '#23301c');
     this.buildTreeField(cypress, cypressTrunkGeometry(), cypressFoliageGeometry(), palette.leafCypress, '#1f2c1c');
 
-    const field = new InstancedField(bushGeometry(), bushMaterial(), bushes.length, 0.025, '#2c3a22');
-    bushes.forEach((b, i) => field.set(i, this.surfaceMatrix(b.dir, 0, b.yaw, b.scale)));
-    field.finalize(bushes.length);
-    field.addTo(this.group);
+    const bushField = new InstancedField(bushGeometry(), bushMaterial(), bushes.length, 0.025, '#2c3a22');
+    bushes.forEach((b, i) => bushField.set(i, this.surfaceMatrix(b.dir, 0, b.yaw, b.scale, 'normal')));
+    bushField.finalize(bushes.length);
+    bushField.addTo(this.group);
+
+    const boulderField = new InstancedField(boulderGeometry(), boulderMaterial(), boulders.length, 0.03, palette.ink);
+    boulders.forEach((b, i) => boulderField.set(i, this.surfaceMatrix(b.dir, -0.1, b.yaw, b.scale, 'normal')));
+    boulderField.finalize(boulders.length);
+    boulderField.addTo(this.group);
+  }
+
+  /** Woods that cluster on hillside regions, with clearings between clusters. */
+  private buildForests(leafy: Scatter[], cypress: Scatter[]): void {
+    let clusters = 0, attempts = 0;
+    while (clusters < 7 && attempts < 400) {
+      attempts++;
+      const c = this.randomFarDir(0.5);
+      if (this.planet.terrain.regionAt(c, this.planet.radius) !== 'hillside') continue;
+      clusters++;
+      const n = 14 + Math.floor(rand() * 22);
+      for (let i = 0; i < n; i++) {
+        const dir = this.offsetDir(c, randRange(0, 0.07), rand() * Math.PI * 2);
+        this.planet.surfacePoint(dir, 0, this._wp);
+        if (!this.isFree(this._wp, 1.1, 0)) continue;
+        const entry = { dir, yaw: rand() * Math.PI * 2, scale: randRange(0.8, 1.3) };
+        if (rand() > 0.82) cypress.push(entry);
+        else leafy.push(entry);
+      }
+    }
+  }
+
+  /** Highland tops: scattered boulders, sparse haystacks, the odd lone tree. */
+  private buildHighland(boulders: Scatter[], bushes: Scatter[]): void {
+    let placed = 0, attempts = 0;
+    while (placed < 5 && attempts < 400) {
+      attempts++;
+      const c = this.randomFarDir(0.5);
+      if (this.planet.terrain.regionAt(c, this.planet.radius) !== 'highland') continue;
+      placed++;
+      const n = 4 + Math.floor(rand() * 5);
+      for (let i = 0; i < n; i++) {
+        boulders.push({ dir: this.offsetDir(c, randRange(0, 0.08), rand() * Math.PI * 2), yaw: rand() * Math.PI * 2, scale: randRange(0.7, 1.4) });
+      }
+      if (rand() > 0.4) this.place(createHaystack(), this.offsetDir(c, randRange(0, 0.05), rand() * Math.PI * 2), rand() * Math.PI * 2, randRange(0.9, 1.2));
+      for (let i = 0; i < 3; i++) {
+        bushes.push({ dir: this.offsetDir(c, randRange(0, 0.06), rand() * Math.PI * 2), yaw: rand() * Math.PI * 2, scale: randRange(0.5, 0.9) });
+      }
+    }
+  }
+
+  /** Reeds, bushes and willows tracing the river. */
+  private buildRiverside(leafy: Scatter[], bushes: Scatter[]): void {
+    const path = this.planet.terrain.streamPath;
+    for (let i = 4; i < path.length - 4; i += 2) {
+      const base = path[i];
+      if (Math.acos(THREE.MathUtils.clamp(base.dot(this.center), -1, 1)) < 0.2) continue; // not in the square
+      for (let s = 0; s < 2; s++) {
+        bushes.push({ dir: this.offsetDir(base, randRange(0.02, 0.05), rand() * Math.PI * 2), yaw: rand() * Math.PI * 2, scale: randRange(0.5, 0.9) });
+      }
+      if (rand() > 0.8) {
+        leafy.push({ dir: this.offsetDir(base, randRange(0.03, 0.06), rand() * Math.PI * 2), yaw: rand() * Math.PI * 2, scale: randRange(1.0, 1.4) });
+      }
+    }
   }
 
   private buildTreeField(
