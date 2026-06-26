@@ -26,10 +26,11 @@ export class Planet {
     this.displace(geometry); // push vertices to terrain height + set analytic normals
 
     const material = createToonMaterial({
-      color: '#8aa05a',
+      color: '#ffffff',     // white base; per-vertex terrain colour provides the hue
       bands: 3,
       shadowStrength: 0.6,
       rimStrength: 0.15,
+      vertexColors: true,
     });
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.name = 'PlanetSurface';
@@ -42,15 +43,22 @@ export class Planet {
   private displace(geometry: THREE.BufferGeometry): void {
     const pos = geometry.getAttribute('position') as THREE.BufferAttribute;
     const nrm = geometry.getAttribute('normal') as THREE.BufferAttribute;
+    const colors = new Float32Array(pos.count * 3);
     const dir = new THREE.Vector3();
     const n = new THREE.Vector3();
+    const c = new THREE.Color();
     for (let i = 0; i < pos.count; i++) {
       dir.set(pos.getX(i), pos.getY(i), pos.getZ(i)).normalize();
       const h = this.terrain.heightAt(dir);
       pos.setXYZ(i, dir.x * (this.radius + h), dir.y * (this.radius + h), dir.z * (this.radius + h));
       this.terrain.normalAt(dir, this.radius, n);
       nrm.setXYZ(i, n.x, n.y, n.z);
+      this.terrain.colorAt(dir, this.radius, c);
+      colors[i * 3] = c.r;
+      colors[i * 3 + 1] = c.g;
+      colors[i * 3 + 2] = c.b;
     }
+    geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     pos.needsUpdate = true;
     nrm.needsUpdate = true;
   }
