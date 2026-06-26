@@ -579,6 +579,36 @@ export function createPond(): THREE.Group {
   return g;
 }
 
+/** A small timber footbridge to span the stream. Spans along local +Z. */
+export function createFootbridge(): THREE.Group {
+  const g = new THREE.Group();
+  g.name = 'Footbridge';
+  const deck = box(1.6, 0.16, 3.4, palette.wood, { shadowStrength: 0.6 });
+  deck.position.y = 0.5;
+  g.add(deck);
+  for (const sx of [-0.7, 0.7]) {
+    const rail = box(0.1, 0.5, 3.4, palette.timberDark);
+    rail.position.set(sx, 0.8, 0);
+    g.add(rail);
+    for (const sz of [-1.5, 0, 1.5]) {
+      const post = box(0.14, 0.7, 0.14, palette.timber);
+      post.position.set(sx, 0.55, sz);
+      g.add(post);
+    }
+  }
+  g.userData.footprint = 1.2;
+  outlineHierarchy(g, { thickness: 0.035, color: palette.ink });
+  return g;
+}
+
+/** Toon water surface material (gentle, slightly translucent). */
+export function waterMaterial(): THREE.ShaderMaterial {
+  const m = mat('#6f9fb0', { shadowStrength: 0.9, rimStrength: 0.5 });
+  m.transparent = true;
+  m.opacity = 0.85;
+  return m;
+}
+
 /** A few stepped retaining walls with planted strips — terraced hillside gardens. */
 export function createTerrace(): THREE.Group {
   const g = new THREE.Group();

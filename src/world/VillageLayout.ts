@@ -14,6 +14,8 @@ import {
   createPot,
   createHaystack,
   createWoodpile,
+  createFootbridge,
+  waterMaterial,
   cobblestoneGeometry,
   cobblestoneMaterial,
   fencePostGeometry,
@@ -264,6 +266,7 @@ export class VillageLayout {
     this.buildFences();
     this.buildGates();
     this.buildScatter();
+    this.buildWater();
   }
 
   private buildSquare(): void {
@@ -548,5 +551,62 @@ export class VillageLayout {
     foliage.finalize(list.length);
     trunk.addTo(this.group);
     foliage.addTo(this.group);
+  }
+
+  /** A water ribbon following the carved stream bed, plus a footbridge where a lane crosses. */
+  private buildWater(): void {
+    const path = this.planet.terrain.streamPath;
+    const halfWidth = 0.035; // angular half-width of the water surface
+    const lift = 0.18;       // sit just above the carved bed
+    const positions: number[] = [];
+    const R = this.planet.radius;
+
+    const left = new THREE.Vector3();
+    const right = new THREE.Vector3();
+    const tangent = new THREE.Vector3();
+    const prevL = new THREE.Vector3();
+    const prevR = new THREE.Vector3();
+
+    const edge = (dir: THREE.Vector3, side: number, out: THREE.Vector3, perp: THREE.Vector3): void => {
+      out.copy(dir).addScaledVector(perp, side * halfWidth).normalize();
+      const h = this.planet.terrain.heightAt(out) + lift;
+      out.multiplyScalar(R + h);
+    };
+
+    for (let i = 0; i < path.length; i++) {
+      const dir = path[i];
+      const next = path[Math.min(i + 1, path.length - 1)];
+      tangent.copy(next).sub(dir);
+      const perp = new THREE.Vector3().crossVectors(dir, tangent).normalize();
+      edge(dir, -1, left, perp);
+      edge(dir, 1, right, perp);
+      if (i > 0) {
+        // two triangles (prevL, prevR, right) and (prevL, right, left)
+        positions.push(prevL.x, prevL.y, prevL.z, prevR.x, prevR.y, prevR.z, right.x, right.y, right.z);
+        positions.push(prevL.x, prevL.y, prevL.z, right.x, right.y, right.z, left.x, left.y, left.z);
+      }
+      prevL.copy(left);
+      prevR.copy(right);
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.computeVertexNormals();
+    const water = new THREE.Mesh(geo, waterMaterial());
+    water.name = 'StreamWater';
+    this.group.add(water);
+
+    // Footbridge where the river passes nearest a chosen lane azimuth (mid-path, outside the square).
+    const mid = path[Math.floor(path.length * 0.32)];
+    const bridge = createFootbridge();
+    // orient the bridge's +Z across the stream (along the local perpendicular)
+    const next = path[Math.floor(path.length * 0.32) + 1];
+    const tan = new THREE.Vector3().subVectors(next, mid);
+    const perp = new THREE.Vector3().crossVectors(mid, tan).normalize();
+    const refTan = this.planet.arbitraryTangent(mid, new THREE.Vector3());
+    const refBi = mid.clone().normalize().cross(refTan).normalize();
+    const yaw = Math.atan2(perp.dot(refBi), perp.dot(refTan));
+    this.place(bridge, mid, yaw, 1, 0.2);
+    this.addColliders(bridge);
   }
 }

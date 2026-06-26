@@ -99,12 +99,12 @@ function flagShadows(): void {
 // ---------------------------------------------------------------------------
 const atmosphere = {
   sunAzimuth: 0.7,
-  sunElevation: 0.9,
-  lightColor: new THREE.Color('#fff1d6'),
+  sunElevation: 0.72,           // lower sun → longer, warmer shadows across the hills
+  lightColor: new THREE.Color('#ffe9c2'),
   ambient: new THREE.Color('#5d6f8c'),
   fogColor: new THREE.Color('#cfe0ec'),
-  fogNear: 110,
-  fogFar: 300,
+  fogNear: 95,
+  fogFar: 280,
 };
 
 const sunDir = new THREE.Vector3();
