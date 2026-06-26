@@ -606,6 +606,7 @@ export function waterMaterial(): THREE.ShaderMaterial {
   const m = mat('#6f9fb0', { shadowStrength: 0.9, rimStrength: 0.5 });
   m.transparent = true;
   m.opacity = 0.85;
+  m.side = THREE.DoubleSide;
   return m;
 }
 

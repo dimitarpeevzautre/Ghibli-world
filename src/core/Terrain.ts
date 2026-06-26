@@ -170,6 +170,7 @@ export class Terrain {
   }
 
   regionAt(dir: THREE.Vector3, radius: number): Region {
+    // Fresh local `d` (not the shared _d scratch): normalAt()/heightAt() below use _d internally, so reusing it would alias.
     const d = dir.clone().normalize();
     if (this.distanceToStream(d) < this.streamWidth * 1.8) return 'waterside';
     const n = this.normalAt(d, radius, this._n);
@@ -183,6 +184,7 @@ export class Terrain {
   }
 
   colorAt(dir: THREE.Vector3, radius: number, target = new THREE.Color()): THREE.Color {
+    // Fresh local `d` (not the shared _d scratch): normalAt()/heightAt() below use _d internally, so reusing it would alias.
     const d = dir.clone().normalize();
     switch (this.regionAt(d, radius)) {
       case 'waterside': return target.copy(GROUND.sand);
