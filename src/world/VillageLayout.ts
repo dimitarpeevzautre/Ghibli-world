@@ -600,7 +600,7 @@ export class VillageLayout {
     const mid = path[Math.floor(path.length * 0.32)];
     const bridge = createFootbridge();
     // orient the bridge's +Z across the stream (along the local perpendicular)
-    const next = path[Math.floor(path.length * 0.32) + 1];
+    const next = path[Math.min(Math.floor(path.length * 0.32) + 1, path.length - 1)];
     const tan = new THREE.Vector3().subVectors(next, mid);
     const perp = new THREE.Vector3().crossVectors(mid, tan).normalize();
     const refTan = this.planet.arbitraryTangent(mid, new THREE.Vector3());
