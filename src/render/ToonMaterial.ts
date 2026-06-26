@@ -27,6 +27,8 @@ export interface ToonMaterialOptions {
   rimPower?: number;
   /** Wind sway amount for foliage (0 = rigid; buildings leave this at 0). */
   windStrength?: number;
+  /** Multiply the base colour by a per-vertex `color` attribute (used by the terrain mesh). */
+  vertexColors?: boolean;
 }
 
 export interface ToonGlobals {
@@ -54,8 +56,16 @@ const vertexShader = /* glsl */ `
   uniform float uWindStrength;
   varying vec3 vWorldNormal;
   varying vec3 vWorldPosition;
+  varying vec3 vColor;
+  #ifdef USE_TERRAIN_COLOR
+    attribute vec3 color;
+  #endif
 
   void main() {
+    vColor = vec3(1.0);
+    #ifdef USE_TERRAIN_COLOR
+      vColor = color;
+    #endif
     vec3 transformed = position;
     vec3 objNormal = normal;
 
@@ -107,6 +117,7 @@ const fragmentShader = /* glsl */ `
 
   varying vec3 vWorldNormal;
   varying vec3 vWorldPosition;
+  varying vec3 vColor;
 
   // Quantize a 0..1 value into N bands with soft edges so the steps don't crawl/alias.
   float banded(float x, float bands) {
@@ -131,8 +142,9 @@ const fragmentShader = /* glsl */ `
     float shadow = getShadowMask();
 
     // Warm-shifted shadow: lerp from a tinted dark colour up to full base colour.
-    vec3 shadowColor = uBaseColor * uShadowTint * uShadowStrength;
-    vec3 diffuse = mix(shadowColor, uBaseColor, lit * shadow);
+    vec3 baseColor = uBaseColor * vColor;
+    vec3 shadowColor = baseColor * uShadowTint * uShadowStrength;
+    vec3 diffuse = mix(shadowColor, baseColor, lit * shadow);
     vec3 color = diffuse * (uAmbient + uLightColor * lit * shadow);
 
     // Fresnel rim light to lift silhouettes off the sky.
@@ -176,6 +188,9 @@ export function createToonMaterial(options: ToonMaterialOptions = {}): THREE.Sha
     lights: true,
     uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.lights, own]),
   });
+  if (options.vertexColors) {
+    material.defines = { ...(material.defines ?? {}), USE_TERRAIN_COLOR: '' };
+  }
   registry.add(material);
   return material;
 }
