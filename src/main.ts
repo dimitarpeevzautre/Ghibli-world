@@ -258,8 +258,6 @@ async function init(): Promise<void> {
 
   const clock = new THREE.Clock();
   let elapsed = 0;
-  const params = new URLSearchParams(location.search);
-  const OVERVIEW = params.has('overview'); // diagnostic far camera
 
   function tick(): void {
     const dt = Math.min(clock.getDelta(), 0.05);
@@ -269,16 +267,7 @@ async function init(): Promise<void> {
     const wheel = input.consumeWheel();
 
     player.update(dt, input, mouse.x);
-    if (OVERVIEW) {
-      const a = parseFloat(params.get('a') ?? '2.2');
-      const el = parseFloat(params.get('el') ?? '0.6');
-      const R = 135;
-      camera.position.set(Math.cos(a) * Math.cos(el) * R, Math.sin(el) * R, Math.sin(a) * Math.cos(el) * R);
-      camera.up.set(0, 1, 0);
-      camera.lookAt(0, 0, 0);
-    } else {
-      cameraRig.update(dt, mouse.y, wheel, input.lookActive);
-    }
+    cameraRig.update(dt, mouse.y, wheel, input.lookActive);
 
     // Keep the shadow map centred on the player, lit from the sun direction.
     sunLight.target.position.copy(player.position);
