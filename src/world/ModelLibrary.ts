@@ -22,6 +22,17 @@ export interface ModelSpec {
   targetHeight?: number;
 }
 
+/**
+ * Re-tint shared material names from the Quaternius Medieval Village pack toward the warm
+ * Bulgarian-Revival palette (terracotta roofs, whitewashed plaster) instead of its default
+ * grey-teal. Matched by material-name prefix; anything not listed keeps its source colour.
+ */
+const RECOLOR: Array<[string, string]> = [
+  ['RoofTiles', '#b5562f'], // terracotta (covers RoofTiles and RoofTiles_Red)
+  ['Plaster', '#ece3d2'],   // whitewash
+  ['Beige', '#e7d6b8'],     // warm plaster
+];
+
 export class ModelLibrary {
   private variants = new Map<string, THREE.Object3D[]>();
   private counters = new Map<string, number>();
@@ -66,7 +77,11 @@ export class ModelLibrary {
       const mesh = o as THREE.Mesh;
       if (!mesh.isMesh) return;
       const src = mesh.material as THREE.MeshStandardMaterial | undefined;
-      const color = src && src.color ? '#' + src.color.getHexString() : '#c8b8a0';
+      let color = src && src.color ? '#' + src.color.getHexString() : '#c8b8a0';
+      const matName = src?.name ?? '';
+      for (const [prefix, hex] of RECOLOR) {
+        if (matName.startsWith(prefix)) { color = hex; break; }
+      }
       mesh.material = createToonMaterial({ color, map: src?.map ?? null });
       mesh.castShadow = true;
       mesh.receiveShadow = true;

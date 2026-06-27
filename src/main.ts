@@ -75,8 +75,8 @@ const natureModels = new NatureModels([
   { name: 'pine', url: './models/nature/tree-pine.glb', targetHeight: 6.0 },
   { name: 'rocks', url: './models/nature/rocks.glb', targetHeight: 1.8 },
   { name: 'bushes', url: './models/nature/bushes.glb', targetHeight: 1.1 },
-  { name: 'grass', url: './models/nature/grass.glb', targetHeight: 1.0 },
-  { name: 'flowers', url: './models/nature/flowers.glb', targetHeight: 0.7 },
+  { name: 'grass', url: './models/nature/grass.glb', targetHeight: 0.7 },
+  { name: 'flowers', url: './models/nature/flowers.glb', targetHeight: 0.6 },
 ]);
 
 // ---------------------------------------------------------------------------

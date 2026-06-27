@@ -565,7 +565,7 @@ export class VillageLayout {
       if (distToCenter < 0.27) continue; // keep the square and lanes clearer
       const region = this.planet.terrain.regionAt(dir, this.planet.radius);
       if (region === 'waterside' || region === 'rock' || region === 'snow') continue;
-      const entry = { dir, yaw: rand() * Math.PI * 2, scale: randRange(0.8, 1.8) };
+      const entry = { dir, yaw: rand() * Math.PI * 2, scale: randRange(0.7, 1.3) };
       if (rand() > 0.85 && flowerVars.length) flowers.push(entry);
       else grass.push(entry);
     }
