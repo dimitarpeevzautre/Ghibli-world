@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Planet } from '../core/Planet';
 import { ModelLibrary } from './ModelLibrary';
+import { NatureModels, type NatureVariant } from './NatureModels';
 import { makeOutlineMaterial } from '../render/OutlinePass';
 import {
   createHouse,
@@ -132,6 +133,7 @@ export class VillageLayout {
     private readonly planet: Planet,
     private readonly center = new THREE.Vector3(0, 1, 0).normalize(),
     private readonly models?: ModelLibrary,
+    private readonly nature?: NatureModels,
   ) {
     this.group.name = 'Village';
     setSeed(20260620);
@@ -464,18 +466,59 @@ export class VillageLayout {
       bushes.push({ dir, yaw: rand() * Math.PI * 2, scale: randRange(0.6, 1.3) });
     }
 
-    this.buildTreeField(leafy, leafyTrunkGeometry(), leafyFoliageGeometry(), palette.leafA, '#23301c');
-    this.buildTreeField(cypress, cypressTrunkGeometry(), cypressFoliageGeometry(), palette.leafCypress, '#1f2c1c');
+    // Trees — real low-poly GLB models if loaded, else procedural trunk+foliage.
+    const broadleaf = this.nature?.getMany(['birch', 'maple']) ?? [];
+    const conifer = this.nature?.getMany(['pine']) ?? [];
+    if (broadleaf.length || conifer.length) {
+      this.buildNatureField(leafy, broadleaf.length ? broadleaf : conifer, 0.04, '#23301c');
+      this.buildNatureField(cypress, conifer.length ? conifer : broadleaf, 0.04, '#1f2c1c');
+    } else {
+      this.buildTreeField(leafy, leafyTrunkGeometry(), leafyFoliageGeometry(), palette.leafA, '#23301c');
+      this.buildTreeField(cypress, cypressTrunkGeometry(), cypressFoliageGeometry(), palette.leafCypress, '#1f2c1c');
+    }
 
-    const bushField = new InstancedField(bushGeometry(), bushMaterial(), bushes.length, 0.025, '#2c3a22');
-    bushes.forEach((b, i) => bushField.set(i, this.surfaceMatrix(b.dir, 0, b.yaw, b.scale, 'normal')));
-    bushField.finalize(bushes.length);
-    bushField.addTo(this.group);
+    // Bushes
+    if (this.nature?.has('bushes')) {
+      this.buildNatureField(bushes, this.nature.get('bushes'), 0.02, '#2c3a22');
+    } else {
+      const bushField = new InstancedField(bushGeometry(), bushMaterial(), bushes.length, 0.025, '#2c3a22');
+      bushes.forEach((b, i) => bushField.set(i, this.surfaceMatrix(b.dir, 0, b.yaw, b.scale, 'normal')));
+      bushField.finalize(bushes.length);
+      bushField.addTo(this.group);
+    }
 
-    const boulderField = new InstancedField(boulderGeometry(), boulderMaterial(), boulders.length, 0.03, palette.ink);
-    boulders.forEach((b, i) => boulderField.set(i, this.surfaceMatrix(b.dir, -0.1, b.yaw, b.scale, 'normal')));
-    boulderField.finalize(boulders.length);
-    boulderField.addTo(this.group);
+    // Boulders / rocks
+    if (this.nature?.has('rocks')) {
+      this.buildNatureField(boulders, this.nature.get('rocks'), 0.03, palette.ink, -0.1);
+    } else {
+      const boulderField = new InstancedField(boulderGeometry(), boulderMaterial(), boulders.length, 0.03, palette.ink);
+      boulders.forEach((b, i) => boulderField.set(i, this.surfaceMatrix(b.dir, -0.1, b.yaw, b.scale, 'normal')));
+      boulderField.finalize(boulders.length);
+      boulderField.addTo(this.group);
+    }
+  }
+
+  /** Instance a placement list across GLB nature variants (round-robin), with matched outlines. */
+  private buildNatureField(
+    list: Scatter[],
+    variants: NatureVariant[],
+    outlineThickness: number,
+    outlineColor: string,
+    height = 0,
+  ): void {
+    if (!variants.length || list.length === 0) return;
+    const buckets: Scatter[][] = variants.map(() => []);
+    list.forEach((s, i) => buckets[i % variants.length].push(s));
+    variants.forEach((variant, vi) => {
+      const items = buckets[vi];
+      if (!items.length) return;
+      for (const prim of variant) {
+        const field = new InstancedField(prim.geometry, prim.material, items.length, outlineThickness, outlineColor);
+        items.forEach((s, i) => field.set(i, this.surfaceMatrix(s.dir, height, s.yaw, s.scale, 'normal')));
+        field.finalize(items.length);
+        field.addTo(this.group);
+      }
+    });
   }
 
   /** Woods that cluster on hillside regions, with clearings between clusters. */

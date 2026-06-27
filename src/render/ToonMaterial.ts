@@ -29,6 +29,8 @@ export interface ToonMaterialOptions {
   windStrength?: number;
   /** Multiply the base colour by a per-vertex `color` attribute (used by the terrain mesh). */
   vertexColors?: boolean;
+  /** Optional base-colour texture (used for imported GLB models that carry their colour in a map). */
+  map?: THREE.Texture | null;
 }
 
 export interface ToonGlobals {
@@ -57,6 +59,7 @@ const vertexShader = /* glsl */ `
   varying vec3 vWorldNormal;
   varying vec3 vWorldPosition;
   varying vec3 vColor;
+  varying vec2 vUv;
   #ifdef USE_TERRAIN_COLOR
     attribute vec3 color;
   #endif
@@ -65,6 +68,9 @@ const vertexShader = /* glsl */ `
     vColor = vec3(1.0);
     #ifdef USE_TERRAIN_COLOR
       vColor = color;
+    #endif
+    #ifdef USE_MAP
+      vUv = uv;
     #endif
     vec3 transformed = position;
     vec3 objNormal = normal;
@@ -118,6 +124,10 @@ const fragmentShader = /* glsl */ `
   varying vec3 vWorldNormal;
   varying vec3 vWorldPosition;
   varying vec3 vColor;
+  varying vec2 vUv;
+  #ifdef USE_MAP
+    uniform sampler2D uMap;
+  #endif
 
   // Quantize a 0..1 value into N bands with soft edges so the steps don't crawl/alias.
   float banded(float x, float bands) {
@@ -143,6 +153,11 @@ const fragmentShader = /* glsl */ `
 
     // Warm-shifted shadow: lerp from a tinted dark colour up to full base colour.
     vec3 baseColor = uBaseColor * vColor;
+    #ifdef USE_MAP
+      vec3 texel = texture2D(uMap, vUv).rgb;
+      texel = pow(texel, vec3(2.2)); // sRGB texture -> linear (OutputPass re-encodes at the end)
+      baseColor *= texel;
+    #endif
     vec3 shadowColor = baseColor * uShadowTint * uShadowStrength;
     vec3 diffuse = mix(shadowColor, baseColor, lit * shadow);
     vec3 color = diffuse * (uAmbient + uLightColor * lit * shadow);
@@ -179,6 +194,7 @@ export function createToonMaterial(options: ToonMaterialOptions = {}): THREE.Sha
     uFogFar: { value: 240 },
     uTime: { value: 0 },
     uWindStrength: { value: options.windStrength ?? 0 },
+    uMap: { value: options.map ?? null },
   };
   const material = new THREE.ShaderMaterial({
     vertexShader,
@@ -190,6 +206,10 @@ export function createToonMaterial(options: ToonMaterialOptions = {}): THREE.Sha
   });
   if (options.vertexColors) {
     material.defines = { ...(material.defines ?? {}), USE_TERRAIN_COLOR: '' };
+  }
+  if (options.map) {
+    material.defines = { ...(material.defines ?? {}), USE_MAP: '' };
+    options.map.colorSpace = THREE.SRGBColorSpace;
   }
   registry.add(material);
   return material;

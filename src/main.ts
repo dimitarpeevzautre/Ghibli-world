@@ -8,6 +8,7 @@ import { CameraRig } from './core/CameraRig';
 import { SkyDome } from './render/SkyDome';
 import { PostFX } from './render/PostFX';
 import { VillageLayout } from './world/VillageLayout';
+import { NatureModels } from './world/NatureModels';
 import { Effects } from './world/Effects';
 import { ModelLibrary } from './world/ModelLibrary';
 import { Ambient } from './render/Ambient';
@@ -57,6 +58,15 @@ const modelLibrary = new ModelLibrary([
   { name: 'barn', url: './models/barn.glb', targetHeight: 4.5 },
   { name: 'gate', url: './models/gate.glb', targetHeight: 3.2 },
   { name: 'cross', url: './models/cross.glb', targetHeight: 2.6 },
+]);
+
+// CC0 low-poly nature (Quaternius) — real trees/rocks/bushes that replace the procedural ones.
+const natureModels = new NatureModels([
+  { name: 'birch', url: './models/nature/tree-birch.glb', targetHeight: 5.5 },
+  { name: 'maple', url: './models/nature/tree-maple.glb', targetHeight: 5.0 },
+  { name: 'pine', url: './models/nature/tree-pine.glb', targetHeight: 6.0 },
+  { name: 'rocks', url: './models/nature/rocks.glb', targetHeight: 1.8 },
+  { name: 'bushes', url: './models/nature/bushes.glb', targetHeight: 1.1 },
 ]);
 
 // ---------------------------------------------------------------------------
@@ -181,9 +191,9 @@ window.addEventListener('resize', () => {
 // World build + loop (after optional models finish loading)
 // ---------------------------------------------------------------------------
 async function init(): Promise<void> {
-  await modelLibrary.preload();
+  await Promise.all([modelLibrary.preload(), natureModels.preload()]);
 
-  const village = new VillageLayout(planet, VILLAGE_CENTER, modelLibrary);
+  const village = new VillageLayout(planet, VILLAGE_CENTER, modelLibrary, natureModels);
   scene.add(village.group);
 
   const player = new PlayerController(planet, new THREE.Vector3(0.0, 1.0, 0.06).normalize());
