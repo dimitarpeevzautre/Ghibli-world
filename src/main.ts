@@ -226,10 +226,12 @@ async function init(): Promise<void> {
 
     player.update(dt, input, mouse.x);
     if (OVERVIEW) {
-      const t = 2.2; // fixed vantage for diagnostic screenshots (?overview)
-      camera.position.set(Math.cos(t) * 118, 78, Math.sin(t) * 118);
+      const a = parseFloat(new URLSearchParams(location.search).get('a') ?? '2.2');
+      const el = parseFloat(new URLSearchParams(location.search).get('el') ?? '0.6');
+      const R = 135;
+      camera.position.set(Math.cos(a) * Math.cos(el) * R, Math.sin(el) * R, Math.sin(a) * Math.cos(el) * R);
       camera.up.set(0, 1, 0);
-      camera.lookAt(0, PLANET_RADIUS * 0.4, 0);
+      camera.lookAt(0, 0, 0);
     } else {
       cameraRig.update(dt, mouse.y, wheel, input.lookActive);
     }

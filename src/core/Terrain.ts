@@ -14,22 +14,22 @@ export interface TerrainConfig {
 
 // Vivid storybook ground tones (bolder than classic muted Ghibli, to read as a colourful planet).
 const GROUND = {
-  meadow: new THREE.Color('#8ec74a'),
-  hillA: new THREE.Color('#6fb83c'),
-  hillB: new THREE.Color('#4e9a31'),
-  autumn: new THREE.Color('#e0922b'),
-  highland: new THREE.Color('#d4c45a'),
-  rock: new THREE.Color('#9a9183'),
-  sand: new THREE.Color('#e6d29a'),
-  snow: new THREE.Color('#eef3f6'),
+  meadow: new THREE.Color('#93d63c'),
+  hillA: new THREE.Color('#5dc22c'),
+  hillB: new THREE.Color('#3a9622'),
+  autumn: new THREE.Color('#ef8c16'),
+  highland: new THREE.Color('#e6d23f'),
+  rock: new THREE.Color('#9a8f7e'),
+  sand: new THREE.Color('#f1da86'),
+  snow: new THREE.Color('#f2f6f9'),
 };
 
 // A few hero mountains (fixed directions) so the planet has a sculpted silhouette.
 const PEAKS = [
-  { dir: new THREE.Vector3(0.9, 0.12, 0.42).normalize(), h: 12, w: 0.36 },
-  { dir: new THREE.Vector3(-0.5, -0.18, 0.85).normalize(), h: 8.5, w: 0.30 },
-  { dir: new THREE.Vector3(-0.25, -0.86, -0.45).normalize(), h: 14, w: 0.42 },
-  { dir: new THREE.Vector3(0.35, 0.55, -0.76).normalize(), h: 7, w: 0.26 },
+  { dir: new THREE.Vector3(0.9, 0.12, 0.42).normalize(), h: 18, w: 0.30 },
+  { dir: new THREE.Vector3(-0.5, -0.18, 0.85).normalize(), h: 13, w: 0.26 },
+  { dir: new THREE.Vector3(-0.25, -0.86, -0.45).normalize(), h: 21, w: 0.34 },
+  { dir: new THREE.Vector3(0.35, 0.55, -0.76).normalize(), h: 11, w: 0.24 },
 ];
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
@@ -85,7 +85,7 @@ export class Terrain {
 
   constructor(center: THREE.Vector3, config: TerrainConfig = {}) {
     this.center = center.clone().normalize();
-    this.hillAmplitude = config.hillAmplitude ?? 4.5;
+    this.hillAmplitude = config.hillAmplitude ?? 6.0;
     this.hillFrequency = config.hillFrequency ?? 1.9;
     this.basinRadius = config.basinRadius ?? 0.3;
     this.basinDepth = config.basinDepth ?? 2.2;
@@ -189,7 +189,7 @@ export class Terrain {
     const d = dir.clone().normalize();
     if (this.distanceToStream(d) < this.streamWidth * 1.8) return 'waterside';
     const h = this.heightAt(d);
-    if (h > 9.5) return 'snow'; // only the hero-mountain tops reach this
+    if (h > 12) return 'snow'; // only the hero-mountain tops reach this
     const n = this.normalAt(d, radius, this._n);
     const slope = 1 - Math.max(0, n.dot(d));
     if (slope > 0.22) return 'rock';

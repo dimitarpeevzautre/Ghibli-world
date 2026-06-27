@@ -17,7 +17,7 @@ const PaperGrainShader = {
     uGrain: { value: 0.04 },
     uVignette: { value: 0.22 },
     uWarmth: { value: 0.03 },
-    uSaturation: { value: 1.18 },
+    uSaturation: { value: 1.32 },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
