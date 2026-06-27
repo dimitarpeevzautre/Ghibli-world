@@ -66,6 +66,16 @@ const modelLibrary = new ModelLibrary([
   // These have no GLB yet → procedural fallback.
   { name: 'gate', url: './models/gate.glb', targetHeight: 3.2 },
   { name: 'cross', url: './models/cross.glb', targetHeight: 2.6 },
+  // Decorative village props (scattered through the square for Messenger-like detail).
+  { name: 'barrel', url: './models/props/barrel.glb', targetHeight: 1.0 },
+  { name: 'crate', url: './models/props/crate.glb', targetHeight: 0.9 },
+  { name: 'cart', url: './models/props/cart.glb', targetHeight: 1.5 },
+  { name: 'marketstand', url: './models/props/marketstand1.glb', targetHeight: 2.4 },
+  { name: 'marketstand', url: './models/props/marketstand2.glb', targetHeight: 2.4 },
+  { name: 'bench', url: './models/props/bench1.glb', targetHeight: 0.8 },
+  { name: 'bench', url: './models/props/bench2.glb', targetHeight: 0.8 },
+  { name: 'bonfire', url: './models/props/bonfire.glb', targetHeight: 1.0 },
+  { name: 'gazebo', url: './models/props/gazebo.glb', targetHeight: 3.2 },
 ]);
 
 // CC0 low-poly nature (Quaternius) — real trees/rocks/bushes that replace the procedural ones.

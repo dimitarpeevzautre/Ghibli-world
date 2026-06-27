@@ -270,6 +270,7 @@ export class VillageLayout {
     this.buildGates();
     this.buildScatter();
     this.buildGroundCover();
+    this.buildVillageProps();
     this.buildWater();
   }
 
@@ -304,6 +305,27 @@ export class VillageLayout {
         if (rand() > 0.5) this.place(createWoodpile(), this.dirAround(angle + 0.045, az + 0.03), rand() * Math.PI * 2);
         if (rand() > 0.7) this.place(createHaystack(), this.dirAround(angle + 0.06, az - 0.04), rand() * Math.PI * 2, randRange(0.8, 1.0));
       }
+    }
+  }
+
+  /** Scatter decorative props (barrels, crates, carts, market stands, benches) through the square. */
+  private buildVillageProps(): void {
+    const kinds = ['barrel', 'crate', 'cart', 'marketstand', 'bench', 'bonfire', 'gazebo'];
+    const available = kinds.filter((k) => this.models?.has(k));
+    if (!available.length) return;
+    let placed = 0;
+    let attempts = 0;
+    while (placed < 30 && attempts < 700) {
+      attempts++;
+      const dir = this.dirAround(randRange(0.04, 0.36), rand() * Math.PI * 2);
+      this.planet.surfacePoint(dir, 0, this._wp);
+      if (!this.isFree(this._wp, 0.9, 0.2)) continue; // not overlapping a building
+      const kind = available[Math.floor(rand() * available.length)];
+      const obj = this.models?.get(kind);
+      if (!obj) continue;
+      this.place(obj, dir, rand() * Math.PI * 2);
+      this.addColliders(obj);
+      placed++;
     }
   }
 
