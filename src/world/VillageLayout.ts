@@ -498,6 +498,16 @@ export class VillageLayout {
     this.buildHighland(boulders, bushes);
     this.buildRiverside(leafy, bushes);
 
+    // A leafy fringe hugging the village edge so the houses nestle in greenery (like Messenger).
+    for (let i = 0; i < 50; i++) {
+      const dir = this.dirAround(randRange(0.36, 0.52), rand() * Math.PI * 2);
+      this.planet.surfacePoint(dir, 0, this._wp);
+      if (!this.isFree(this._wp, 1.2, 0)) continue;
+      const entry = { dir, yaw: rand() * Math.PI * 2, scale: randRange(0.8, 1.2) };
+      if (rand() > 0.8) cypress.push(entry);
+      else leafy.push(entry);
+    }
+
     // Light ambient bushes everywhere except the village core (keeps the globe lived-in).
     for (let i = 0; i < 360; i++) {
       const dir = this.randomDirection();
