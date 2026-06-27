@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-export type Region = 'meadow' | 'hillside' | 'highland' | 'rock' | 'waterside';
+export type Region = 'meadow' | 'hillside' | 'highland' | 'rock' | 'waterside' | 'snow';
 
 export interface TerrainConfig {
   hillAmplitude?: number;
@@ -12,16 +12,25 @@ export interface TerrainConfig {
   seed?: number;
 }
 
-// Muted Ghibli ground tones — kept local so `core` never depends on `world`.
+// Vivid storybook ground tones (bolder than classic muted Ghibli, to read as a colourful planet).
 const GROUND = {
-  meadow: new THREE.Color('#7c9a4e'),
-  hillA: new THREE.Color('#6f8f4a'),
-  hillB: new THREE.Color('#577636'),
-  autumn: new THREE.Color('#b0853a'),
-  highland: new THREE.Color('#a7ad5c'),
-  rock: new THREE.Color('#9c958a'),
-  sand: new THREE.Color('#c9b78f'),
+  meadow: new THREE.Color('#8ec74a'),
+  hillA: new THREE.Color('#6fb83c'),
+  hillB: new THREE.Color('#4e9a31'),
+  autumn: new THREE.Color('#e0922b'),
+  highland: new THREE.Color('#d4c45a'),
+  rock: new THREE.Color('#9a9183'),
+  sand: new THREE.Color('#e6d29a'),
+  snow: new THREE.Color('#eef3f6'),
 };
+
+// A few hero mountains (fixed directions) so the planet has a sculpted silhouette.
+const PEAKS = [
+  { dir: new THREE.Vector3(0.9, 0.12, 0.42).normalize(), h: 12, w: 0.36 },
+  { dir: new THREE.Vector3(-0.5, -0.18, 0.85).normalize(), h: 8.5, w: 0.30 },
+  { dir: new THREE.Vector3(-0.25, -0.86, -0.45).normalize(), h: 14, w: 0.42 },
+  { dir: new THREE.Vector3(0.35, 0.55, -0.76).normalize(), h: 7, w: 0.26 },
+];
 
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const smooth = (t: number) => t * t * (3 - 2 * t);
@@ -76,12 +85,12 @@ export class Terrain {
 
   constructor(center: THREE.Vector3, config: TerrainConfig = {}) {
     this.center = center.clone().normalize();
-    this.hillAmplitude = config.hillAmplitude ?? 1.5;
-    this.hillFrequency = config.hillFrequency ?? 1.7;
-    this.basinRadius = config.basinRadius ?? 0.34;
-    this.basinDepth = config.basinDepth ?? 1.0;
-    this.streamWidth = config.streamWidth ?? 0.045;
-    this.streamDepth = config.streamDepth ?? 0.7;
+    this.hillAmplitude = config.hillAmplitude ?? 4.5;
+    this.hillFrequency = config.hillFrequency ?? 1.9;
+    this.basinRadius = config.basinRadius ?? 0.3;
+    this.basinDepth = config.basinDepth ?? 2.2;
+    this.streamWidth = config.streamWidth ?? 0.05;
+    this.streamDepth = config.streamDepth ?? 1.4;
     this.seed = config.seed ?? 1337;
     this.buildStreamPath();
   }
@@ -135,6 +144,12 @@ export class Terrain {
     }
     h = (h / norm) * this.hillAmplitude;
 
+    // 1b. hero mountains — a few gaussian peaks for a sculpted silhouette
+    for (const p of PEAKS) {
+      const a = Math.acos(THREE.MathUtils.clamp(d.dot(p.dir), -1, 1));
+      h += p.h * Math.exp(-(a * a) / (p.w * p.w));
+    }
+
     // 2. village basin — flatten + lower the ground near the centre
     const ang = Math.acos(THREE.MathUtils.clamp(d.dot(this.center), -1, 1));
     const basin = 1 - sstep(this.basinRadius * 0.45, this.basinRadius, ang);
@@ -173,13 +188,14 @@ export class Terrain {
     // Fresh local `d` (not the shared _d scratch): normalAt()/heightAt() below use _d internally, so reusing it would alias.
     const d = dir.clone().normalize();
     if (this.distanceToStream(d) < this.streamWidth * 1.8) return 'waterside';
+    const h = this.heightAt(d);
+    if (h > 9.5) return 'snow'; // only the hero-mountain tops reach this
     const n = this.normalAt(d, radius, this._n);
     const slope = 1 - Math.max(0, n.dot(d));
-    if (slope > 0.16) return 'rock';
-    const h = this.heightAt(d);
+    if (slope > 0.22) return 'rock';
     const hn = clamp01((h + this.basinDepth) / (this.hillAmplitude + this.basinDepth));
-    if (hn < 0.34) return 'meadow';
-    if (hn < 0.72) return 'hillside';
+    if (hn < 0.4) return 'meadow';
+    if (hn < 0.85) return 'hillside';
     return 'highland';
   }
 
@@ -188,6 +204,7 @@ export class Terrain {
     const d = dir.clone().normalize();
     switch (this.regionAt(d, radius)) {
       case 'waterside': return target.copy(GROUND.sand);
+      case 'snow': return target.copy(GROUND.snow);
       case 'rock': return target.copy(GROUND.rock);
       case 'meadow': return target.copy(GROUND.meadow);
       case 'highland': return target.copy(GROUND.highland);

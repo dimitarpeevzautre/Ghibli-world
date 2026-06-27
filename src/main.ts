@@ -23,7 +23,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.05;
+renderer.toneMappingExposure = 1.28;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 container.appendChild(renderer.domElement);
@@ -99,12 +99,12 @@ function flagShadows(): void {
 // ---------------------------------------------------------------------------
 const atmosphere = {
   sunAzimuth: 0.7,
-  sunElevation: 0.72,           // lower sun → longer, warmer shadows across the hills
-  lightColor: new THREE.Color('#ffe9c2'),
-  ambient: new THREE.Color('#5d6f8c'),
-  fogColor: new THREE.Color('#cfe0ec'),
-  fogNear: 95,
-  fogFar: 280,
+  sunElevation: 0.98,           // higher, brighter sun for a clear cheerful midday
+  lightColor: new THREE.Color('#fff2d4'),
+  ambient: new THREE.Color('#9fb2cc'),  // bright sky-bounce fill so shadows aren't muddy
+  fogColor: new THREE.Color('#d9e8f2'),
+  fogNear: 130,
+  fogFar: 340,
 };
 
 const sunDir = new THREE.Vector3();
@@ -215,6 +215,7 @@ async function init(): Promise<void> {
 
   const clock = new THREE.Clock();
   let elapsed = 0;
+  const OVERVIEW = new URLSearchParams(location.search).has('overview'); // diagnostic far camera
 
   function tick(): void {
     const dt = Math.min(clock.getDelta(), 0.05);
@@ -224,7 +225,14 @@ async function init(): Promise<void> {
     const wheel = input.consumeWheel();
 
     player.update(dt, input, mouse.x);
-    cameraRig.update(dt, mouse.y, wheel, input.lookActive);
+    if (OVERVIEW) {
+      const t = 2.2; // fixed vantage for diagnostic screenshots (?overview)
+      camera.position.set(Math.cos(t) * 118, 78, Math.sin(t) * 118);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(0, PLANET_RADIUS * 0.4, 0);
+    } else {
+      cameraRig.update(dt, mouse.y, wheel, input.lookActive);
+    }
 
     // Keep the shadow map centred on the player, lit from the sun direction.
     sunLight.target.position.copy(player.position);

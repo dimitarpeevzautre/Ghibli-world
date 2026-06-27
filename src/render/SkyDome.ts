@@ -97,9 +97,9 @@ export class SkyDome {
       side: THREE.BackSide,
       depthWrite: false,
       uniforms: {
-        uHorizonColor: { value: new THREE.Color('#f3dcc0') },
-        uZenithColor: { value: new THREE.Color('#7fa9d6') },
-        uGroundColor: { value: new THREE.Color('#b9c4c2') },
+        uHorizonColor: { value: new THREE.Color('#fae3c4') },
+        uZenithColor: { value: new THREE.Color('#4d93e6') },
+        uGroundColor: { value: new THREE.Color('#bcd0d2') },
         uCloudColor: { value: new THREE.Color('#fbf6ee') },
         uSunDir: { value: new THREE.Vector3(0.5, 1.0, 0.3).normalize() },
         uSunColor: { value: new THREE.Color('#fff4d8') },

@@ -14,10 +14,10 @@ const PaperGrainShader = {
     tDiffuse: { value: null as THREE.Texture | null },
     uTime: { value: 0 },
     uResolution: { value: new THREE.Vector2(1, 1) },
-    uGrain: { value: 0.06 },
-    uVignette: { value: 0.4 },
-    uWarmth: { value: 0.04 },
-    uSaturation: { value: 0.92 },
+    uGrain: { value: 0.04 },
+    uVignette: { value: 0.22 },
+    uWarmth: { value: 0.03 },
+    uSaturation: { value: 1.18 },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;
