@@ -53,6 +53,7 @@ export const toonGlobals: ToonGlobals = {
 
 const vertexShader = /* glsl */ `
   #include <common>
+  #include <skinning_pars_vertex>
   #include <shadowmap_pars_vertex>
   uniform float uTime;
   uniform float uWindStrength;
@@ -73,7 +74,12 @@ const vertexShader = /* glsl */ `
       vUv = uv;
     #endif
     vec3 transformed = position;
-    vec3 objNormal = normal;
+    vec3 objectNormal = normal;
+    // Skeletal animation (skinned characters). No-ops unless USE_SKINNING is defined.
+    #include <skinbase_vertex>
+    #include <skinnormal_vertex>
+    #include <skinning_vertex>
+    vec3 objNormal = objectNormal;
 
     // Gentle wind sway in object space (base stays put, tops sway). Buildings use 0 strength.
     if (uWindStrength > 0.0) {

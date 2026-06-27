@@ -38,6 +38,12 @@ export class PlayerController {
   private idleTime = 0;
   private targetQuat = new THREE.Quaternion();
 
+  // Optional skinned character (replaces the placeholder capsule).
+  private mixer?: THREE.AnimationMixer;
+  private actions = new Map<string, THREE.AnimationAction>();
+  private active?: THREE.AnimationAction;
+  private hasCharacter = false;
+
   // scratch
   private _m = new THREE.Matrix4();
   private _v = new THREE.Vector3();
@@ -107,6 +113,53 @@ export class PlayerController {
     return group;
   }
 
+  /** Swap the placeholder capsule for a loaded skinned GLB character with idle/walk/run anims. */
+  setCharacter(gltf: { scene: THREE.Object3D; animations: THREE.AnimationClip[] }): void {
+    this.visual.clear();
+
+    const model = gltf.scene;
+    model.updateWorldMatrix(true, true);
+    const box = new THREE.Box3().setFromObject(model);
+    const size = new THREE.Vector3();
+    const center = new THREE.Vector3();
+    box.getSize(size);
+    box.getCenter(center);
+    const targetH = 2.0;
+    const scale = size.y > 1e-4 ? targetH / size.y : 1;
+    model.position.set(-center.x * scale, -box.min.y * scale, -center.z * scale);
+    model.scale.setScalar(scale);
+    model.rotation.y = Math.PI; // face the player's forward (-Z)
+
+    model.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh) return;
+      const src = m.material as THREE.MeshStandardMaterial;
+      const color = src && src.color ? '#' + src.color.getHexString() : '#c8b8a0';
+      m.material = createToonMaterial({ color, shadowStrength: 0.5, rimStrength: 0.45 });
+      m.castShadow = true;
+      m.receiveShadow = true;
+    });
+
+    this.visual.add(model);
+    this.hasCharacter = true;
+
+    this.mixer = new THREE.AnimationMixer(model);
+    for (const clip of gltf.animations) {
+      const key = clip.name.split('|').pop() ?? clip.name;
+      this.actions.set(key, this.mixer.clipAction(clip));
+    }
+    this.playClip('Idle');
+  }
+
+  /** Cross-fade to a named animation clip (no-op if missing or already active). */
+  private playClip(name: string): void {
+    const next = this.actions.get(name);
+    if (!next || next === this.active) return;
+    next.reset().fadeIn(0.2).play();
+    if (this.active) this.active.fadeOut(0.2);
+    this.active = next;
+  }
+
   update(dt: number, input: Input, mouseDX: number): void {
     // 1. local up
     this.planet.localUp(this.position, this.up);
@@ -154,13 +207,21 @@ export class PlayerController {
       this.orthonormalizeForward();
     }
 
-    // walking bob, or a gentle idle breathing when stood still
     const moving = this.currentSpeed > 0.5;
-    if (moving) {
+    if (this.hasCharacter) {
+      // Skinned character: animation drives the look; keep the root steady.
+      this.visual.position.y = 0;
+      this.visual.scale.y = 1;
+      const running = this.currentSpeed > this.walkSpeed * 1.25;
+      this.playClip(moving ? (running ? 'Run' : 'Walk') : 'Idle');
+      this.mixer?.update(dt);
+    } else if (moving) {
+      // placeholder capsule: walking bob
       this.bobTime += dt * this.currentSpeed * 1.1;
       this.visual.position.y = Math.abs(Math.sin(this.bobTime)) * 0.12;
       this.visual.scale.y = 1;
     } else {
+      // placeholder capsule: gentle idle breathing
       this.idleTime += dt;
       this.visual.position.y = Math.sin(this.idleTime * 1.6) * 0.03;
       this.visual.scale.y = 1 + Math.sin(this.idleTime * 1.6) * 0.012;

@@ -9,6 +9,7 @@ import { SkyDome } from './render/SkyDome';
 import { PostFX } from './render/PostFX';
 import { VillageLayout } from './world/VillageLayout';
 import { NatureModels } from './world/NatureModels';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Effects } from './world/Effects';
 import { ModelLibrary } from './world/ModelLibrary';
 import { Ambient } from './render/Ambient';
@@ -206,6 +207,14 @@ async function init(): Promise<void> {
   player.obstacles = village.obstacles;
   scene.add(player.root);
 
+  // Swap the placeholder capsule for a real animated villager (CC0). Falls back silently.
+  try {
+    const farmer = await new GLTFLoader().loadAsync('./models/farmer.glb');
+    player.setCharacter(farmer);
+  } catch {
+    /* keep the procedural capsule if the model is missing */
+  }
+
   const cameraRig = new CameraRig(camera, player);
   cameraRig.colliders = village.colliders;
   cameraRig.distance = 14;
@@ -232,7 +241,6 @@ async function init(): Promise<void> {
 
   const clock = new THREE.Clock();
   let elapsed = 0;
-  const OVERVIEW = new URLSearchParams(location.search).has('overview'); // diagnostic far camera
 
   function tick(): void {
     const dt = Math.min(clock.getDelta(), 0.05);
@@ -242,16 +250,7 @@ async function init(): Promise<void> {
     const wheel = input.consumeWheel();
 
     player.update(dt, input, mouse.x);
-    if (OVERVIEW) {
-      const a = parseFloat(new URLSearchParams(location.search).get('a') ?? '2.2');
-      const el = parseFloat(new URLSearchParams(location.search).get('el') ?? '0.6');
-      const R = 135;
-      camera.position.set(Math.cos(a) * Math.cos(el) * R, Math.sin(el) * R, Math.sin(a) * Math.cos(el) * R);
-      camera.up.set(0, 1, 0);
-      camera.lookAt(0, 0, 0);
-    } else {
-      cameraRig.update(dt, mouse.y, wheel, input.lookActive);
-    }
+    cameraRig.update(dt, mouse.y, wheel, input.lookActive);
 
     // Keep the shadow map centred on the player, lit from the sun direction.
     sunLight.target.position.copy(player.position);
