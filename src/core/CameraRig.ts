@@ -22,6 +22,7 @@ export class CameraRig {
   colliders: THREE.Object3D[] = [];
   collisionMargin = 0.4; // keep this far off a wall
   minClampDistance = 0.5; // floor on camera->target distance (never pushed past the wall)
+  groundClearance = 1.6; // keep the camera at least this far above the terrain surface
 
   private smoothedUp = new THREE.Vector3(0, 1, 0);
   private smoothedTarget = new THREE.Vector3();
@@ -99,6 +100,12 @@ export class CameraRig {
 
     // Final hard clamp so the smoothed position itself never clips through a wall.
     this.clampToColliders(this.smoothedTarget, this.currentPos);
+
+    // Keep the camera above the terrain surface (it only collides with buildings otherwise).
+    const planet = this.player.planet;
+    this._dir.copy(this.currentPos).normalize();
+    const groundR = planet.radius + planet.terrain.heightAt(this._dir) + this.groundClearance;
+    if (this.currentPos.length() < groundR) this.currentPos.setLength(groundR);
 
     this.camera.position.copy(this.currentPos);
     this.camera.up.copy(this.smoothedUp);

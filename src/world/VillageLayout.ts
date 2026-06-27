@@ -268,6 +268,7 @@ export class VillageLayout {
     this.buildFences();
     this.buildGates();
     this.buildScatter();
+    this.buildGroundCover();
     this.buildWater();
   }
 
@@ -498,7 +499,11 @@ export class VillageLayout {
     }
   }
 
-  /** Instance a placement list across GLB nature variants (round-robin), with matched outlines. */
+  /**
+   * Instance a placement list across GLB nature variants (round-robin). With outlineThickness > 0
+   * each primitive gets a matched inverted-hull ink outline; with 0 (e.g. grass) the outline is
+   * skipped for a lighter, softer look and fewer draw calls.
+   */
   private buildNatureField(
     list: Scatter[],
     variants: NatureVariant[],
@@ -513,12 +518,42 @@ export class VillageLayout {
       const items = buckets[vi];
       if (!items.length) return;
       for (const prim of variant) {
-        const field = new InstancedField(prim.geometry, prim.material, items.length, outlineThickness, outlineColor);
-        items.forEach((s, i) => field.set(i, this.surfaceMatrix(s.dir, height, s.yaw, s.scale, 'normal')));
-        field.finalize(items.length);
-        field.addTo(this.group);
+        if (outlineThickness > 0) {
+          const field = new InstancedField(prim.geometry, prim.material, items.length, outlineThickness, outlineColor);
+          items.forEach((s, i) => field.set(i, this.surfaceMatrix(s.dir, height, s.yaw, s.scale, 'normal')));
+          field.finalize(items.length);
+          field.addTo(this.group);
+        } else {
+          const mesh = new THREE.InstancedMesh(prim.geometry, prim.material, items.length);
+          mesh.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+          items.forEach((s, i) => mesh.setMatrixAt(i, this.surfaceMatrix(s.dir, height, s.yaw, s.scale, 'normal')));
+          mesh.instanceMatrix.needsUpdate = true;
+          mesh.frustumCulled = false;
+          this.group.add(mesh);
+        }
       }
     });
+  }
+
+  /** Carpet the meadows/hillsides with grass tufts and the odd wildflower clump. */
+  private buildGroundCover(): void {
+    const grassVars = this.nature?.get('grass') ?? [];
+    const flowerVars = this.nature?.get('flowers') ?? [];
+    if (!grassVars.length && !flowerVars.length) return;
+    const grass: Scatter[] = [];
+    const flowers: Scatter[] = [];
+    for (let i = 0; i < 7000; i++) {
+      const dir = this.randomDirection();
+      const distToCenter = Math.acos(THREE.MathUtils.clamp(dir.dot(this.center), -1, 1));
+      if (distToCenter < 0.27) continue; // keep the square and lanes clearer
+      const region = this.planet.terrain.regionAt(dir, this.planet.radius);
+      if (region === 'waterside' || region === 'rock' || region === 'snow') continue;
+      const entry = { dir, yaw: rand() * Math.PI * 2, scale: randRange(0.8, 1.8) };
+      if (rand() > 0.85 && flowerVars.length) flowers.push(entry);
+      else grass.push(entry);
+    }
+    this.buildNatureField(grass, grassVars, 0, '');
+    this.buildNatureField(flowers, flowerVars, 0, '');
   }
 
   /** Woods that cluster on hillside regions, with clearings between clusters. */

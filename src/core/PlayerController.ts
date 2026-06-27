@@ -48,7 +48,7 @@ export class PlayerController {
   private _o = new THREE.Vector3();
 
   constructor(
-    private readonly planet: Planet,
+    readonly planet: Planet,
     startDirection = new THREE.Vector3(0, 1, 0.0001),
   ) {
     this.root = new THREE.Object3D();

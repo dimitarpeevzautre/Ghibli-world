@@ -67,6 +67,8 @@ const natureModels = new NatureModels([
   { name: 'pine', url: './models/nature/tree-pine.glb', targetHeight: 6.0 },
   { name: 'rocks', url: './models/nature/rocks.glb', targetHeight: 1.8 },
   { name: 'bushes', url: './models/nature/bushes.glb', targetHeight: 1.1 },
+  { name: 'grass', url: './models/nature/grass.glb', targetHeight: 1.0 },
+  { name: 'flowers', url: './models/nature/flowers.glb', targetHeight: 0.7 },
 ]);
 
 // ---------------------------------------------------------------------------
@@ -196,13 +198,18 @@ async function init(): Promise<void> {
   const village = new VillageLayout(planet, VILLAGE_CENTER, modelLibrary, natureModels);
   scene.add(village.group);
 
-  const player = new PlayerController(planet, new THREE.Vector3(0.0, 1.0, 0.06).normalize());
-  planet.tangentToward(player.up, new THREE.Vector3(0, 1, 0), player.forward); // face the square
+  // Spawn on open ground just outside the village, looking in across the square toward the
+  // landscape — a nicer first view than starting on top of the fountain.
+  const spawnDir = new THREE.Vector3(0, Math.cos(0.46), Math.sin(0.46)).normalize();
+  const player = new PlayerController(planet, spawnDir);
+  planet.tangentToward(player.up, VILLAGE_CENTER, player.forward); // face the village
   player.obstacles = village.obstacles;
   scene.add(player.root);
 
   const cameraRig = new CameraRig(camera, player);
   cameraRig.colliders = village.colliders;
+  cameraRig.distance = 14;
+  cameraRig.height = 6.5;
 
   const effects = new Effects(village.chimneys, VILLAGE_CENTER, PLANET_RADIUS);
   scene.add(effects.group);
