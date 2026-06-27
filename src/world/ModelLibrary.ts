@@ -1,15 +1,17 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { createToonMaterial } from '../render/ToonMaterial';
-import { outlineHierarchy } from '../render/OutlinePass';
+import { addOutline } from '../render/OutlinePass';
 
 /**
- * Loads optional glTF/GLB models (e.g. AI-generated buildings) and prepares them to match the
+ * Loads optional glTF/GLB models (e.g. CC0 village buildings) and prepares them to match the
  * game's look: every surface is re-materialised to the cel-shaded ToonMaterial (keeping the
- * source albedo colour/texture), an inverted-hull ink outline is added, and the model is
+ * source albedo colour AND texture), an inverted-hull ink outline is added, and the model is
  * normalised so its base sits at y=0, centred on X/Z — exactly what `Planet.placeOnSurface`
- * expects. If a file is missing, the slot simply stays empty and the caller falls back to the
- * procedural prop, so the project runs with zero art and improves as GLBs are dropped in.
+ * expects. Missing files leave the slot empty and the caller falls back to the procedural prop.
+ *
+ * Several specs may share a `name` (e.g. four `house` variants); `get(name)` then hands them out
+ * round-robin, so the village gets variety while staying deterministic (placement order is fixed).
  *
  * Drop files in `public/models/` (served at `./models/<name>.glb`).
  */
@@ -21,7 +23,8 @@ export interface ModelSpec {
 }
 
 export class ModelLibrary {
-  private templates = new Map<string, THREE.Object3D>();
+  private variants = new Map<string, THREE.Object3D[]>();
+  private counters = new Map<string, number>();
   private loader = new GLTFLoader();
 
   constructor(private readonly specs: ModelSpec[]) {}
@@ -32,20 +35,26 @@ export class ModelLibrary {
   }
 
   has(name: string): boolean {
-    return this.templates.has(name);
+    return (this.variants.get(name)?.length ?? 0) > 0;
   }
 
-  /** A ready-to-place clone of the prepared model, or null if it wasn't loaded. */
+  /** A ready-to-place clone of the next variant for `name` (round-robin), or null if none loaded. */
   get(name: string): THREE.Object3D | null {
-    const t = this.templates.get(name);
-    return t ? t.clone(true) : null;
+    const list = this.variants.get(name);
+    if (!list || list.length === 0) return null;
+    const i = (this.counters.get(name) ?? 0) % list.length;
+    this.counters.set(name, i + 1);
+    return list[i].clone(true);
   }
 
   private async tryLoad(spec: ModelSpec): Promise<void> {
     try {
       const gltf = await this.loader.loadAsync(spec.url);
-      this.templates.set(spec.name, this.prepare(gltf.scene, spec));
-      console.info(`[models] loaded "${spec.name}" from ${spec.url}`);
+      const prepared = this.prepare(gltf.scene, spec);
+      const list = this.variants.get(spec.name) ?? [];
+      list.push(prepared);
+      this.variants.set(spec.name, list);
+      console.info(`[models] loaded "${spec.name}" variant from ${spec.url}`);
     } catch {
       // Expected until art exists — fall back to the procedural prop.
     }
@@ -58,7 +67,9 @@ export class ModelLibrary {
       if (!mesh.isMesh) return;
       const src = mesh.material as THREE.MeshStandardMaterial | undefined;
       const color = src && src.color ? '#' + src.color.getHexString() : '#c8b8a0';
-      mesh.material = createToonMaterial({ color });
+      mesh.material = createToonMaterial({ color, map: src?.map ?? null });
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
     });
 
     // Normalise placement: a wrapper is what gets placed (placeOnSurface overwrites .position),
@@ -78,7 +89,21 @@ export class ModelLibrary {
     wrapper.add(model);
     wrapper.userData.footprint = Math.max(size.x, size.z) * 0.5 * scale + 0.15;
 
-    outlineHierarchy(wrapper, { thickness: 0.045, color: '#2a2018' });
+    // Ink outline at a CONSTANT world thickness. addOutline extrudes in each mesh's local space,
+    // so divide by that mesh's accumulated world scale — otherwise large-scaled models (e.g. the
+    // windmill, scaled up from small native units) get a huge black inverted-hull shell.
+    wrapper.updateMatrixWorld(true);
+    const ws = new THREE.Vector3();
+    const meshes: THREE.Mesh[] = [];
+    wrapper.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh && !m.name.endsWith('__outline')) meshes.push(m);
+    });
+    for (const mesh of meshes) {
+      mesh.getWorldScale(ws);
+      const s = Math.max(ws.x, ws.y, ws.z) || 1;
+      addOutline(mesh, { thickness: 0.05 / s, color: '#2a2018' });
+    }
     return wrapper;
   }
 }

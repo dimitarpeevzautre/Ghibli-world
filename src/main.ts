@@ -53,10 +53,17 @@ window.addEventListener('touchstart', startAudio, { once: true });
 // Optional GLB models — drop files in public/models/ (served at ./models/<name>.glb). Any that
 // load replace the procedural prop; missing ones fall back automatically. See docs/MODELS.md.
 const modelLibrary = new ModelLibrary([
-  { name: 'house', url: './models/house.glb', targetHeight: 6.5 },
-  { name: 'chapel', url: './models/chapel.glb', targetHeight: 10 },
-  { name: 'cheshma', url: './models/cheshma.glb', targetHeight: 3.2 },
-  { name: 'barn', url: './models/barn.glb', targetHeight: 4.5 },
+  // CC0 Quaternius Medieval Village set (4 house variants + landmarks) → cohesive with the nature.
+  { name: 'house', url: './models/house1.glb', targetHeight: 5.5 },
+  { name: 'house', url: './models/house2.glb', targetHeight: 5.5 },
+  { name: 'house', url: './models/house3.glb', targetHeight: 5.0 },
+  { name: 'house', url: './models/house4.glb', targetHeight: 4.8 },
+  { name: 'chapel', url: './models/chapel.glb', targetHeight: 11 },
+  { name: 'cheshma', url: './models/cheshma.glb', targetHeight: 2.8 },
+  { name: 'barn', url: './models/barn.glb', targetHeight: 5.0 },
+  { name: 'inn', url: './models/inn.glb', targetHeight: 6.5 },
+  { name: 'mill', url: './models/mill.glb', targetHeight: 9.0 },
+  // These have no GLB yet → procedural fallback.
   { name: 'gate', url: './models/gate.glb', targetHeight: 3.2 },
   { name: 'cross', url: './models/cross.glb', targetHeight: 2.6 },
 ]);
@@ -241,6 +248,8 @@ async function init(): Promise<void> {
 
   const clock = new THREE.Clock();
   let elapsed = 0;
+  const params = new URLSearchParams(location.search);
+  const OVERVIEW = params.has('overview'); // diagnostic far camera
 
   function tick(): void {
     const dt = Math.min(clock.getDelta(), 0.05);
@@ -250,7 +259,16 @@ async function init(): Promise<void> {
     const wheel = input.consumeWheel();
 
     player.update(dt, input, mouse.x);
-    cameraRig.update(dt, mouse.y, wheel, input.lookActive);
+    if (OVERVIEW) {
+      const a = parseFloat(params.get('a') ?? '2.2');
+      const el = parseFloat(params.get('el') ?? '0.6');
+      const R = 135;
+      camera.position.set(Math.cos(a) * Math.cos(el) * R, Math.sin(el) * R, Math.sin(a) * Math.cos(el) * R);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(0, 0, 0);
+    } else {
+      cameraRig.update(dt, mouse.y, wheel, input.lookActive);
+    }
 
     // Keep the shadow map centred on the player, lit from the sun direction.
     sunLight.target.position.copy(player.position);

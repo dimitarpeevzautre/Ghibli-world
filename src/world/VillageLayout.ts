@@ -263,6 +263,7 @@ export class VillageLayout {
   private build(): void {
     this.buildSquare();
     this.buildCoreHouses();
+    this.buildLandmarks();
     this.buildCountryside();
     this.buildCobblestones();
     this.buildFences();
@@ -302,6 +303,22 @@ export class VillageLayout {
         this.place(createPot(), this.dirAround(angle + 0.03, az + randRange(-0.02, 0.02)), rand() * Math.PI * 2);
         if (rand() > 0.5) this.place(createWoodpile(), this.dirAround(angle + 0.045, az + 0.03), rand() * Math.PI * 2);
         if (rand() > 0.7) this.place(createHaystack(), this.dirAround(angle + 0.06, az - 0.04), rand() * Math.PI * 2, randRange(0.8, 1.0));
+      }
+    }
+  }
+
+  /** Place the unique hero buildings (inn near the square, windmill out on a hill) if loaded. */
+  private buildLandmarks(): void {
+    const inn = this.models?.has('inn') ? this.models.get('inn') : null;
+    if (inn) {
+      const dir = this.dirAround(0.24, 2.3);
+      this.tryPlaceBuilding(inn, dir, this.yawFacingCenter(dir), true);
+    }
+    const mill = this.models?.has('mill') ? this.models.get('mill') : null;
+    if (mill) {
+      for (let a = 0; a < 200; a++) {
+        const dir = this.randomFarDir(0.45);
+        if (this.tryPlaceBuilding(mill, dir, rand() * Math.PI * 2)) break;
       }
     }
   }
