@@ -46,7 +46,7 @@ const registry = new Set<THREE.ShaderMaterial>();
 // unless they were created with an explicit override.
 export const toonGlobals: ToonGlobals = {
   bands: 3,
-  shadowTint: new THREE.Color('#6a5a78'),
+  shadowTint: new THREE.Color('#8a7a6a'),
   rimColor: new THREE.Color('#fff3d6'),
   rimStrength: 0.5,
 };

@@ -131,7 +131,7 @@ const atmosphere = {
   sunAzimuth: 0.7,
   sunElevation: 0.98,           // higher, brighter sun for a clear cheerful midday
   lightColor: new THREE.Color('#fff2d4'),
-  ambient: new THREE.Color('#9fb2cc'),  // bright sky-bounce fill so shadows aren't muddy
+  ambient: new THREE.Color('#aebbc8'),  // bright, slightly warm sky-bounce fill so shadows aren't muddy
   fogColor: new THREE.Color('#d9e8f2'),
   fogNear: 130,
   fogFar: 340,

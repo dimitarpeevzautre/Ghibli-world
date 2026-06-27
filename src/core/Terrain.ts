@@ -89,8 +89,8 @@ export class Terrain {
     this.hillFrequency = config.hillFrequency ?? 1.9;
     this.basinRadius = config.basinRadius ?? 0.3;
     this.basinDepth = config.basinDepth ?? 2.2;
-    this.streamWidth = config.streamWidth ?? 0.05;
-    this.streamDepth = config.streamDepth ?? 1.4;
+    this.streamWidth = config.streamWidth ?? 0.06;
+    this.streamDepth = config.streamDepth ?? 0.7;
     this.seed = config.seed ?? 1337;
     this.buildStreamPath();
   }

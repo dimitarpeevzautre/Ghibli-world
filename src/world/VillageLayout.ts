@@ -673,8 +673,8 @@ export class VillageLayout {
   /** A water ribbon following the carved stream bed, plus a footbridge where a lane crosses. */
   private buildWater(): void {
     const path = this.planet.terrain.streamPath;
-    const halfWidth = 0.035; // angular half-width of the water surface
-    const lift = 0.18;       // sit just above the carved bed
+    const halfWidth = 0.058; // angular half-width of the water surface
+    const lift = 0.32;       // fill most of the (now shallower) carved bed so water reads clearly
     const positions: number[] = [];
     const R = this.planet.radius;
 

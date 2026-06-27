@@ -603,9 +603,9 @@ export function createFootbridge(): THREE.Group {
 
 /** Toon water surface material (gentle, slightly translucent). */
 export function waterMaterial(): THREE.ShaderMaterial {
-  const m = mat('#6f9fb0', { shadowStrength: 0.9, rimStrength: 0.5 });
+  const m = mat('#4fb3d9', { shadowStrength: 1.0, rimStrength: 0.6, bands: 2 });
   m.transparent = true;
-  m.opacity = 0.85;
+  m.opacity = 0.92;
   m.side = THREE.DoubleSide;
   return m;
 }
